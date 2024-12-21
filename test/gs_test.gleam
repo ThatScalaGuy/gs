@@ -213,3 +213,17 @@ pub fn to_option_test() {
   |> gs.to_option
   |> should.equal(option.None)
 }
+
+pub fn try_recover_test() {
+  gs.from_list([1, 2, 3])
+  |> gs.map(fn(x) { Ok(x) })
+  |> gs.try_recover(fn(_) { gs.pure(0) })
+  |> gs.to_list
+  |> should.equal([1, 2, 3])
+
+  Error(5)
+  |> gs.pure
+  |> gs.try_recover(fn(error) { gs.pure(error + 1) })
+  |> gs.to_list
+  |> should.equal([6])
+}

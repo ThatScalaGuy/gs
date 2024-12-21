@@ -398,3 +398,44 @@ pub fn println(stream: Stream(String)) -> Stream(String) {
 pub fn debug(stream: Stream(a)) -> Stream(a) {
   tap(stream, fn(x) { io.debug(x) })
 }
+
+/// Attempts to recover from an error in a stream using the given function.
+/// If the stream is successful, it remains unchanged.
+/// If the stream contains an error, the recovery function is used to attempt to create a new stream.
+///
+/// ## Examples
+///
+/// ```gleam
+/// [1, 2, 3]
+/// |> from_list
+/// |> try_recover(fn(_) { pure(0) })
+/// // -> Stream containing [1, 2, 3]
+/// ```
+///
+/// ```gleam
+/// Error(5) 
+/// |> from_result
+/// |> try_recover(fn(error) { pure(error + 1) })
+/// // -> Stream containing [6]
+/// ```
+pub fn try_recover(
+  stream: Stream(Result(a, e)),
+  recover: fn(e) -> Stream(a),
+) -> Stream(a) {
+  Stream(pull: fn() {
+    case stream.pull() {
+      Some(#(Ok(value), rest)) -> Some(#(value, try_recover(rest, recover)))
+      Some(#(Error(error), _)) -> recover(error).pull()
+      None -> None
+    }
+  })
+}
+
+/// Recovers from an error in a stream using the given function.
+/// Alias for `try_recover`.
+pub fn recover(
+  stream: Stream(Result(a, e)),
+  recover: fn(e) -> Stream(a),
+) -> Stream(a) {
+  try_recover(stream, recover)
+}
