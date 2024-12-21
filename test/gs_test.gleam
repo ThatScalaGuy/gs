@@ -197,3 +197,9 @@ pub fn zip_with_test() {
   |> gs.to_list
   |> should.equal([5, 7, 9])
 }
+
+pub fn to_nil_test() {
+  gs.from_list([1, 2, 3])
+  |> gs.to_nil
+  |> should.equal(Nil)
+}

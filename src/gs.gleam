@@ -201,6 +201,16 @@ pub fn to_list(stream: Stream(a)) -> List(a) {
   fold(stream, [], fn(acc, x) { list.append(acc, [x]) })
 }
 
+/// Collects a stream into a Nothing.
+/// 
+/// Example:
+/// ```gleam
+/// repeat(1) |> take(5) |> to_nil
+/// ```
+pub fn to_nil(stream: Stream(a)) -> Nil {
+  fold(stream, Nil, fn(_, _) { Nil })
+}
+
 /// Creates a stream that emits chunks of a given size.
 /// 
 /// Example:
