@@ -211,6 +211,19 @@ pub fn to_nil(stream: Stream(a)) -> Nil {
   fold(stream, Nil, fn(_, _) { Nil })
 }
 
+/// Collects the first element of a stream into an option.
+/// 
+/// Example:
+/// ```gleam
+/// repeat(1) |> take(5) |> to_option
+/// ```
+pub fn to_option(stream: Stream(a)) -> Option(a) {
+  case stream.pull() {
+    Some(#(value, _)) -> Some(value)
+    None -> None
+  }
+}
+
 /// Creates a stream that emits chunks of a given size.
 /// 
 /// Example:

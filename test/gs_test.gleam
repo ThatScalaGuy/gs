@@ -203,3 +203,13 @@ pub fn to_nil_test() {
   |> gs.to_nil
   |> should.equal(Nil)
 }
+
+pub fn to_option_test() {
+  gs.from_list([1, 2, 3])
+  |> gs.to_option
+  |> should.equal(option.Some(1))
+
+  gs.empty()
+  |> gs.to_option
+  |> should.equal(option.None)
+}
