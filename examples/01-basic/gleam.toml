@@ -1,0 +1,10 @@
+name = "example"
+version = "1.0.0"
+description = "Gleam Stream wxample"
+
+[dependencies]
+gleam_stdlib = ">= 0.34.0 and < 2.0.0"
+gs = { path = "../.." }
+
+[dev-dependencies]
+gleeunit = ">= 1.0.0 and < 2.0.0"
