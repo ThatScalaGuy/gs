@@ -227,3 +227,42 @@ pub fn try_recover_test() {
   |> gs.to_list
   |> should.equal([6])
 }
+
+pub fn take_while_test() {
+  gs.from_list([1, 2, 3, 4, 5])
+  |> gs.take_while(fn(x) { x < 4 })
+  |> gs.to_list
+  |> should.equal([1, 2, 3])
+
+  gs.from_list([1, 2, 3])
+  |> gs.take_while(fn(_) { False })
+  |> gs.to_list
+  |> should.equal([])
+
+  gs.from_list([1, 2, 3])
+  |> gs.take_while(fn(_) { True })
+  |> gs.to_list
+  |> should.equal([1, 2, 3])
+}
+
+pub fn drop_test() {
+  gs.from_list([1, 2, 3, 4, 5])
+  |> gs.drop(2)
+  |> gs.to_list
+  |> should.equal([3, 4, 5])
+
+  gs.from_list([1, 2])
+  |> gs.drop(3)
+  |> gs.to_list
+  |> should.equal([])
+
+  gs.from_list([1, 2, 3])
+  |> gs.drop(0)
+  |> gs.to_list
+  |> should.equal([1, 2, 3])
+
+  gs.empty()
+  |> gs.drop(1)
+  |> gs.to_list
+  |> should.equal([])
+}

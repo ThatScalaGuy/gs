@@ -144,6 +144,23 @@ pub fn filter(stream: Stream(a), pred: fn(a) -> Bool) -> Stream(a) {
   })
 }
 
+/// Drops the first `n` elements from a stream.
+/// 
+/// Example:
+/// ```gleam
+/// repeat(1) |> drop(5)
+/// ```
+pub fn drop(stream: Stream(a), n: Int) -> Stream(a) {
+  case n <= 0 {
+    True -> stream
+    False ->
+      case stream.pull() {
+        Some(#(_, next)) -> drop(next, n - 1)
+        None -> empty()
+      }
+  }
+}
+
 /// Takes the first `n` elements from a stream.
 /// 
 /// Example:
@@ -161,6 +178,25 @@ pub fn take(stream: Stream(a), n: Int) -> Stream(a) {
         }
       })
   }
+}
+
+/// Takes elements from a stream while a predicate is true.
+/// 
+/// Example:
+/// ```gleam
+/// repeat(1) |> take_while(fn(x) { x < 5 })
+/// ```
+pub fn take_while(stream: Stream(a), pred: fn(a) -> Bool) -> Stream(a) {
+  Stream(pull: fn() {
+    case stream.pull() {
+      Some(#(value, next)) ->
+        case pred(value) {
+          True -> Some(#(value, take_while(next, pred)))
+          False -> None
+        }
+      None -> None
+    }
+  })
 }
 
 /// Concatenates two streams.
