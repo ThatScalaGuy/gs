@@ -266,3 +266,25 @@ pub fn drop_test() {
   |> gs.to_list
   |> should.equal([])
 }
+
+pub fn intersperse_test() {
+  gs.from_list([1, 2, 3])
+  |> gs.intersperse(0)
+  |> gs.to_list
+  |> should.equal([1, 0, 2, 0, 3])
+
+  gs.from_list([1])
+  |> gs.intersperse(0)
+  |> gs.to_list
+  |> should.equal([1])
+
+  gs.empty()
+  |> gs.intersperse(0)
+  |> gs.to_list
+  |> should.equal([])
+
+  gs.from_list([1, 2])
+  |> gs.intersperse(0)
+  |> gs.to_list
+  |> should.equal([1, 0, 2])
+}

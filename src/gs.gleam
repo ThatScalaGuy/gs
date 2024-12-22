@@ -475,3 +475,28 @@ pub fn recover(
 ) -> Stream(a) {
   try_recover(stream, recover)
 }
+
+/// Interleaves a separator between each element of a stream.
+/// 
+/// Example:
+/// ```gleam
+/// repeat(1) |> intersperse(0)
+/// ```
+pub fn intersperse(stream: Stream(a), separator: a) -> Stream(a) {
+  Stream(pull: fn() {
+    case stream.pull() {
+      Some(#(value, next)) ->
+        case next.pull() {
+          Some(_) ->
+            Some(#(
+              value,
+              Stream(pull: fn() {
+                Some(#(separator, intersperse(next, separator)))
+              }),
+            ))
+          None -> Some(#(value, empty()))
+        }
+      None -> None
+    }
+  })
+}
