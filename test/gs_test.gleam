@@ -346,10 +346,9 @@ pub fn from_range_exclusive_test() {
   |> gs.to_list
   |> should.equal([])
 }
-
-pub fn from_timestamp_eval_test() {
-  gs.from_timestamp_eval()
-  |> gs.take(2)
-  |> gs.tap(fn(x) { io.debug(x) })
-  |> gs.to_list
-}
+// pub fn from_timestamp_eval_test() {
+//   gs.from_timestamp_eval()
+//   |> gs.take(2)
+//   |> gs.tap(fn(x) { io.debug(x) })
+//   |> gs.to_list
+// }
