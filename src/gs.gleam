@@ -1,6 +1,7 @@
 import gleam/io
 import gleam/list
 import gleam/option.{type Option, None, Some}
+import gs/internal/utils
 
 /// A stream of values of type `a`.
 pub type Stream(a) {
@@ -25,6 +26,43 @@ pub fn empty() -> Stream(a) {
 /// ```
 pub fn pure(value: a) -> Stream(a) {
   Stream(pull: fn() { Some(#(value, empty())) })
+}
+
+/// Creates a stream that counts up from a given number.
+/// 
+/// Example:
+/// ```gleam
+/// let stream = from_counter(1)
+/// ```
+pub fn from_counter(start: Int) -> Stream(Int) {
+  Stream(pull: fn() { Some(#(start, from_counter(start + 1))) })
+}
+
+/// Creates a stream that counts up from a given number, including the end.
+/// 
+/// Example:
+/// ```gleam
+/// let stream = from_range(1, 5)
+/// ```
+pub fn from_range(start: Int, end: Int) -> Stream(Int) {
+  case start <= end {
+    True -> Stream(pull: fn() { Some(#(start, from_range(start + 1, end))) })
+    False -> empty()
+  }
+}
+
+/// Creates a stream that counts up from a given number, excluding the end.
+/// 
+/// Example:
+/// ```gleam
+/// let stream = from_range_exclusive(1, 5)
+/// ```
+pub fn from_range_exclusive(start: Int, end: Int) -> Stream(Int) {
+  case start < end {
+    True ->
+      Stream(pull: fn() { Some(#(start, from_range_exclusive(start + 1, end))) })
+    False -> empty()
+  }
 }
 
 /// Creates a stream from a list of items.
@@ -93,6 +131,16 @@ pub fn repeat(value: a) -> Stream(a) {
 /// ```
 pub fn repeat_eval(f: fn() -> a) -> Stream(a) {
   Stream(pull: fn() { Some(#(f(), repeat_eval(f))) })
+}
+
+/// Creates a stream that emits the current timestamp.
+///
+/// Example:
+/// ```gleam
+/// const stream = from_timestamp()
+/// ```
+pub fn from_timestamp_eval() -> Stream(Int) {
+  Stream(pull: fn() { Some(#(utils.timestamp(), from_timestamp_eval())) })
 }
 
 /// Maps a function over a stream.

@@ -1,3 +1,4 @@
+import gleam/io
 import gleam/option
 import gleeunit
 import gleeunit/should
@@ -287,4 +288,68 @@ pub fn intersperse_test() {
   |> gs.intersperse(0)
   |> gs.to_list
   |> should.equal([1, 0, 2])
+}
+
+pub fn from_counter_test() {
+  gs.from_counter(1)
+  |> gs.take(3)
+  |> gs.to_list
+  |> should.equal([1, 2, 3])
+
+  gs.from_counter(0)
+  |> gs.take(4)
+  |> gs.to_list
+  |> should.equal([0, 1, 2, 3])
+
+  gs.from_counter(-2)
+  |> gs.take(3)
+  |> gs.to_list
+  |> should.equal([-2, -1, 0])
+}
+
+pub fn from_range_test() {
+  gs.from_range(1, 3)
+  |> gs.to_list
+  |> should.equal([1, 2, 3])
+
+  gs.from_range(0, 0)
+  |> gs.to_list
+  |> should.equal([0])
+
+  gs.from_range(3, 1)
+  |> gs.to_list
+  |> should.equal([])
+
+  gs.from_range(-2, 1)
+  |> gs.to_list
+  |> should.equal([-2, -1, 0, 1])
+}
+
+pub fn from_range_exclusive_test() {
+  gs.from_range_exclusive(1, 4)
+  |> gs.to_list
+  |> should.equal([1, 2, 3])
+
+  gs.from_range_exclusive(0, 1)
+  |> gs.to_list
+  |> should.equal([0])
+
+  gs.from_range_exclusive(3, 1)
+  |> gs.to_list
+  |> should.equal([])
+
+  gs.from_range_exclusive(-2, 1)
+  |> gs.to_list
+  |> should.equal([-2, -1, 0])
+
+  gs.from_range_exclusive(1, 1)
+  |> gs.to_list
+  |> should.equal([])
+}
+
+pub fn from_timestamp_eval_test() {
+  gs.from_timestamp_eval()
+  |> gs.take(2)
+  |> gs.tap(fn(x) { io.debug(x) })
+  |> gs.to_list
 }
