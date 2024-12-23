@@ -9,13 +9,13 @@ pub fn main() {
 }
 
 pub fn empty_test() {
-  gs.empty()
+  gs.from_empty()
   |> gs.to_list
   |> should.equal([])
 }
 
 pub fn pure_test() {
-  gs.pure(42)
+  gs.from_pure(42)
   |> gs.to_list
   |> should.equal([42])
 }
@@ -67,7 +67,7 @@ pub fn from_result_test() {
 }
 
 pub fn repeat_test() {
-  gs.repeat(1)
+  gs.from_repeat(1)
   |> gs.take(3)
   |> gs.to_list
   |> should.equal([1, 1, 1])
@@ -112,11 +112,11 @@ pub fn concat_test() {
   |> gs.to_list
   |> should.equal([1, 2, 3, 4])
 
-  gs.concat(gs.empty(), s2)
+  gs.concat(gs.from_empty(), s2)
   |> gs.to_list
   |> should.equal([3, 4])
 
-  gs.concat(s1, gs.empty())
+  gs.concat(s1, gs.from_empty())
   |> gs.to_list
   |> should.equal([1, 2])
 }
@@ -143,7 +143,7 @@ pub fn fold_test() {
   |> gs.fold(0, fn(acc, x) { acc + x })
   |> should.equal(10)
 
-  gs.empty()
+  gs.from_empty()
   |> gs.fold(42, fn(acc, x) { acc + x })
   |> should.equal(42)
 }
@@ -156,18 +156,18 @@ pub fn zip_test() {
   |> should.equal([#(1, "a"), #(2, "b"), #(3, "c")])
 
   // Empty stream cases
-  gs.zip(gs.empty(), s2)
+  gs.zip(gs.from_empty(), s2)
   |> gs.to_list
   |> should.equal([])
 
-  gs.zip(s1, gs.empty())
+  gs.zip(s1, gs.from_empty())
   |> gs.to_list
   |> should.equal([])
 }
 
 pub fn flat_map_test() {
   gs.from_list([1, 2])
-  |> gs.flat_map(fn(x) { gs.pure(x * 2) })
+  |> gs.flat_map(fn(x) { gs.from_pure(x * 2) })
   |> gs.to_list
   |> should.equal([2, 4])
 
@@ -176,15 +176,15 @@ pub fn flat_map_test() {
   |> gs.to_list
   |> should.equal([1, 2, 3, 4])
 
-  gs.empty()
-  |> gs.flat_map(gs.pure)
+  gs.from_empty()
+  |> gs.flat_map(gs.from_pure)
   |> gs.to_list
   |> should.equal([])
 }
 
 pub fn repeat_eval_test() {
   let counter =
-    gs.repeat_eval(fn() { 1 })
+    gs.from_repeat_eval(fn() { 1 })
     |> gs.take(3)
     |> gs.to_list
 
@@ -210,7 +210,7 @@ pub fn to_option_test() {
   |> gs.to_option
   |> should.equal(option.Some(1))
 
-  gs.empty()
+  gs.from_empty()
   |> gs.to_option
   |> should.equal(option.None)
 }
@@ -218,13 +218,13 @@ pub fn to_option_test() {
 pub fn try_recover_test() {
   gs.from_list([1, 2, 3])
   |> gs.map(fn(x) { Ok(x) })
-  |> gs.try_recover(fn(_) { gs.pure(0) })
+  |> gs.try_recover(fn(_) { gs.from_pure(0) })
   |> gs.to_list
   |> should.equal([1, 2, 3])
 
   Error(5)
-  |> gs.pure
-  |> gs.try_recover(fn(error) { gs.pure(error + 1) })
+  |> gs.from_pure
+  |> gs.try_recover(fn(error) { gs.from_pure(error + 1) })
   |> gs.to_list
   |> should.equal([6])
 }
@@ -262,7 +262,7 @@ pub fn drop_test() {
   |> gs.to_list
   |> should.equal([1, 2, 3])
 
-  gs.empty()
+  gs.from_empty()
   |> gs.drop(1)
   |> gs.to_list
   |> should.equal([])
@@ -279,7 +279,7 @@ pub fn intersperse_test() {
   |> gs.to_list
   |> should.equal([1])
 
-  gs.empty()
+  gs.from_empty()
   |> gs.intersperse(0)
   |> gs.to_list
   |> should.equal([])

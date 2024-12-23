@@ -12,9 +12,9 @@ pub type Stream(a) {
 /// 
 /// Example:
 /// ```gleam
-/// let stream = empty()
+/// let stream = from_empty()
 /// ```
-pub fn empty() -> Stream(a) {
+pub fn from_empty() -> Stream(a) {
   Stream(pull: fn() { None })
 }
 
@@ -24,8 +24,8 @@ pub fn empty() -> Stream(a) {
 /// ```gleam
 /// let stream = pure(42)
 /// ```
-pub fn pure(value: a) -> Stream(a) {
-  Stream(pull: fn() { Some(#(value, empty())) })
+pub fn from_pure(value: a) -> Stream(a) {
+  Stream(pull: fn() { Some(#(value, from_empty())) })
 }
 
 /// Creates a stream that counts up from a given number.
@@ -47,7 +47,7 @@ pub fn from_counter(start: Int) -> Stream(Int) {
 pub fn from_range(start: Int, end: Int) -> Stream(Int) {
   case start <= end {
     True -> Stream(pull: fn() { Some(#(start, from_range(start + 1, end))) })
-    False -> empty()
+    False -> from_empty()
   }
 }
 
@@ -61,7 +61,7 @@ pub fn from_range_exclusive(start: Int, end: Int) -> Stream(Int) {
   case start < end {
     True ->
       Stream(pull: fn() { Some(#(start, from_range_exclusive(start + 1, end))) })
-    False -> empty()
+    False -> from_empty()
   }
 }
 
@@ -73,7 +73,7 @@ pub fn from_range_exclusive(start: Int, end: Int) -> Stream(Int) {
 /// ```
 pub fn from_list(items: List(a)) -> Stream(a) {
   case items {
-    [] -> empty()
+    [] -> from_empty()
     [head, ..tail] -> Stream(pull: fn() { Some(#(head, from_list(tail))) })
   }
 }
@@ -86,8 +86,8 @@ pub fn from_list(items: List(a)) -> Stream(a) {
 /// ```
 pub fn from_option(option: Option(a)) -> Stream(a) {
   case option {
-    Some(value) -> pure(value)
-    None -> empty()
+    Some(value) -> from_pure(value)
+    None -> from_empty()
   }
 }
 
@@ -99,8 +99,8 @@ pub fn from_option(option: Option(a)) -> Stream(a) {
 /// ```
 pub fn from_result(result: Result(a, _)) -> Stream(a) {
   case result {
-    Ok(value) -> pure(value)
-    Error(_) -> empty()
+    Ok(value) -> from_pure(value)
+    Error(_) -> from_empty()
   }
 }
 
@@ -119,8 +119,8 @@ pub fn from_result(result: Result(a, _)) -> Stream(a) {
 /// ```gleam
 /// 42 |> repeat
 /// ```
-pub fn repeat(value: a) -> Stream(a) {
-  Stream(pull: fn() { Some(#(value, repeat(value))) })
+pub fn from_repeat(value: a) -> Stream(a) {
+  Stream(pull: fn() { Some(#(value, from_repeat(value))) })
 }
 
 /// Repeats the result of a function indefinitely in a stream.
@@ -129,8 +129,8 @@ pub fn repeat(value: a) -> Stream(a) {
 /// ```gleam
 /// fn() { 42 } |> repeat_eval
 /// ```
-pub fn repeat_eval(f: fn() -> a) -> Stream(a) {
-  Stream(pull: fn() { Some(#(f(), repeat_eval(f))) })
+pub fn from_repeat_eval(f: fn() -> a) -> Stream(a) {
+  Stream(pull: fn() { Some(#(f(), from_repeat_eval(f))) })
 }
 
 /// Creates a stream that emits the current timestamp.
@@ -204,7 +204,7 @@ pub fn drop(stream: Stream(a), n: Int) -> Stream(a) {
     False ->
       case stream.pull() {
         Some(#(_, next)) -> drop(next, n - 1)
-        None -> empty()
+        None -> from_empty()
       }
   }
 }
@@ -217,7 +217,7 @@ pub fn drop(stream: Stream(a), n: Int) -> Stream(a) {
 /// ```
 pub fn take(stream: Stream(a), n: Int) -> Stream(a) {
   case n <= 0 {
-    True -> empty()
+    True -> from_empty()
     False ->
       Stream(pull: fn() {
         case stream.pull() {
@@ -316,7 +316,7 @@ pub fn to_option(stream: Stream(a)) -> Option(a) {
 /// ```
 pub fn chunks(stream: Stream(a), size: Int) -> Stream(List(a)) {
   case size <= 0 {
-    True -> empty()
+    True -> from_empty()
     False ->
       Stream(pull: fn() {
         case take_chunk(stream, size, []) {
@@ -340,7 +340,7 @@ fn take_chunk(
         None ->
           case acc {
             [] -> None
-            _ -> Some(#(list.reverse(acc), empty()))
+            _ -> Some(#(list.reverse(acc), from_empty()))
           }
       }
   }
@@ -422,12 +422,12 @@ pub fn zip_all(
         case right.pull() {
           Some(#(v2, next2)) ->
             Some(#(Some(#(Some(v1), Some(v2))), zip_all(next1, next2)))
-          None -> Some(#(Some(#(Some(v1), None)), zip_all(next1, empty())))
+          None -> Some(#(Some(#(Some(v1), None)), zip_all(next1, from_empty())))
         }
       None ->
         case right.pull() {
           Some(#(v2, next2)) ->
-            Some(#(Some(#(None, Some(v2))), zip_all(empty(), next2)))
+            Some(#(Some(#(None, Some(v2))), zip_all(from_empty(), next2)))
           None -> None
         }
     }
@@ -451,12 +451,13 @@ pub fn zip_all_with(
         case right.pull() {
           Some(#(v2, next2)) ->
             Some(#(f(Some(v1), Some(v2)), zip_all_with(next1, next2, f)))
-          None -> Some(#(f(Some(v1), None), zip_all_with(next1, empty(), f)))
+          None ->
+            Some(#(f(Some(v1), None), zip_all_with(next1, from_empty(), f)))
         }
       None ->
         case right.pull() {
           Some(#(v2, next2)) ->
-            Some(#(f(None, Some(v2)), zip_all_with(empty(), next2, f)))
+            Some(#(f(None, Some(v2)), zip_all_with(from_empty(), next2, f)))
           None -> None
         }
     }
@@ -542,7 +543,7 @@ pub fn intersperse(stream: Stream(a), separator: a) -> Stream(a) {
                 Some(#(separator, intersperse(next, separator)))
               }),
             ))
-          None -> Some(#(value, empty()))
+          None -> Some(#(value, from_empty()))
         }
       None -> None
     }
