@@ -262,52 +262,6 @@ pub fn concat(first: Stream(a), second: Stream(a)) -> Stream(a) {
   })
 }
 
-/// Folds a stream into a single value.
-/// 
-/// Example:
-/// ```gleam
-/// repeat(1) |> take(5) |> fold(0, fn(acc, x) { acc + x })
-/// ```
-pub fn fold(stream: Stream(a), initial: b, f: fn(b, a) -> b) -> b {
-  case stream.pull() {
-    Some(#(value, next)) -> fold(next, f(initial, value), f)
-    None -> initial
-  }
-}
-
-/// Collects a stream into a list.
-/// 
-/// Example:
-/// ```gleam
-/// repeat(1) |> take(5) |> to_list
-/// ```
-pub fn to_list(stream: Stream(a)) -> List(a) {
-  fold(stream, [], fn(acc, x) { list.append(acc, [x]) })
-}
-
-/// Collects a stream into a Nothing.
-/// 
-/// Example:
-/// ```gleam
-/// repeat(1) |> take(5) |> to_nil
-/// ```
-pub fn to_nil(stream: Stream(a)) -> Nil {
-  fold(stream, Nil, fn(_, _) { Nil })
-}
-
-/// Collects the first element of a stream into an option.
-/// 
-/// Example:
-/// ```gleam
-/// repeat(1) |> take(5) |> to_option
-/// ```
-pub fn to_option(stream: Stream(a)) -> Option(a) {
-  case stream.pull() {
-    Some(#(value, _)) -> Some(value)
-    None -> None
-  }
-}
-
 /// Creates a stream that emits chunks of a given size.
 /// 
 /// Example:
@@ -548,4 +502,50 @@ pub fn intersperse(stream: Stream(a), separator: a) -> Stream(a) {
       None -> None
     }
   })
+}
+
+/// Folds a stream into a single value.
+/// 
+/// Example:
+/// ```gleam
+/// repeat(1) |> take(5) |> to_fold(0, fn(acc, x) { acc + x })
+/// ```
+pub fn to_fold(stream: Stream(a), initial: b, f: fn(b, a) -> b) -> b {
+  case stream.pull() {
+    Some(#(value, next)) -> to_fold(next, f(initial, value), f)
+    None -> initial
+  }
+}
+
+/// Collects a stream into a list.
+/// 
+/// Example:
+/// ```gleam
+/// repeat(1) |> take(5) |> to_list
+/// ```
+pub fn to_list(stream: Stream(a)) -> List(a) {
+  to_fold(stream, [], fn(acc, x) { list.append(acc, [x]) })
+}
+
+/// Collects a stream into a Nothing.
+/// 
+/// Example:
+/// ```gleam
+/// repeat(1) |> take(5) |> to_nil
+/// ```
+pub fn to_nil(stream: Stream(a)) -> Nil {
+  to_fold(stream, Nil, fn(_, _) { Nil })
+}
+
+/// Collects the first element of a stream into an option.
+/// 
+/// Example:
+/// ```gleam
+/// repeat(1) |> take(5) |> to_option
+/// ```
+pub fn to_option(stream: Stream(a)) -> Option(a) {
+  case stream.pull() {
+    Some(#(value, _)) -> Some(value)
+    None -> None
+  }
 }

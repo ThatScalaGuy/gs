@@ -138,13 +138,13 @@ pub fn chunks_test() {
   |> should.equal([])
 }
 
-pub fn fold_test() {
+pub fn to_fold_test() {
   gs.from_list([1, 2, 3, 4])
-  |> gs.fold(0, fn(acc, x) { acc + x })
+  |> gs.to_fold(0, fn(acc, x) { acc + x })
   |> should.equal(10)
 
   gs.from_empty()
-  |> gs.fold(42, fn(acc, x) { acc + x })
+  |> gs.to_fold(42, fn(acc, x) { acc + x })
   |> should.equal(42)
 }
 
