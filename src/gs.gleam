@@ -91,6 +91,34 @@ pub fn from_option(option: Option(a)) -> Stream(a) {
   }
 }
 
+/// Creates a stream from a tick in ms.
+/// 
+/// Example:
+/// ```gleam
+/// from_tick(1000)
+/// ```
+/// 
+pub fn from_tick(delay_ms: Int) -> Stream(Int) {
+  case delay_ms <= 0 {
+    True -> panic as "delay_ms must be greater than 0"
+    False -> do_from_tick(delay_ms, 0)
+  }
+}
+
+fn do_from_tick(delay_ms: Int, last_tick: Int) -> Stream(Int) {
+  Stream(pull: fn() {
+    let now = utils.timestamp()
+    let diff = now - last_tick
+    case diff >= delay_ms {
+      True -> Some(#(diff - delay_ms, do_from_tick(delay_ms, now)))
+      False -> {
+        utils.sleep(delay_ms - diff)
+        Some(#(0, do_from_tick(delay_ms, now)))
+      }
+    }
+  })
+}
+
 /// Creates a stream from a result.
 /// 
 /// Example:
@@ -501,6 +529,19 @@ pub fn intersperse(stream: Stream(a), separator: a) -> Stream(a) {
         }
       None -> None
     }
+  })
+}
+
+/// Sleeps for a given number of milliseconds before pulling the next value from a stream.
+/// 
+/// Example:
+/// ```gleam
+/// repeat(1) |> sleep(1000)
+/// ```
+pub fn sleep(stream: Stream(a), delay_ms: Int) -> Stream(a) {
+  Stream(pull: fn() {
+    utils.sleep(delay_ms)
+    stream.pull()
   })
 }
 

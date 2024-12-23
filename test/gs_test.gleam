@@ -1,4 +1,4 @@
-import gleam/io
+import gleam/list
 import gleam/option
 import gleeunit
 import gleeunit/should
@@ -346,9 +346,18 @@ pub fn from_range_exclusive_test() {
   |> gs.to_list
   |> should.equal([])
 }
+
 // pub fn from_timestamp_eval_test() {
 //   gs.from_timestamp_eval()
 //   |> gs.take(2)
 //   |> gs.tap(fn(x) { io.debug(x) })
 //   |> gs.to_list
 // }
+pub fn from_tick_test() {
+  // Test that ticks emit at roughly the right intervals
+  gs.from_tick(1000)
+  |> gs.take(3)
+  |> gs.to_list
+  |> list.length
+  |> should.equal(3)
+}
