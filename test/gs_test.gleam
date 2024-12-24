@@ -1,6 +1,6 @@
 import gleam/erlang/process
 import gleam/list
-import gleam/option
+import gleam/option.{None, Some}
 import gleeunit
 import gleeunit/should
 import gs
@@ -354,6 +354,7 @@ pub fn from_range_exclusive_test() {
 //   |> gs.tap(fn(x) { io.debug(x) })
 //   |> gs.to_list
 // }
+
 pub fn from_tick_test() {
   // Test that ticks emit at roughly the right intervals
   gs.from_tick(1000)
@@ -369,11 +370,55 @@ pub fn from_subject_test() {
     gs.from_subject(subject)
     |> gs.take(3)
 
-  process.send(subject, 1)
-  process.send(subject, 2)
-  process.send(subject, 3)
+  process.send(subject, Some(1))
+  process.send(subject, Some(2))
+  process.send(subject, Some(3))
+  process.send(subject, Some(4))
 
   subject_stream
   |> gs.to_list
   |> should.equal([1, 2, 3])
+
+  process.send(subject, None)
+  gs.from_subject(subject) |> gs.to_list |> should.equal([4])
+}
+
+pub fn split_test() {
+  let #(left, right, _) =
+    gs.from_list([1, 2, 3, 4, 5])
+    |> gs.split(fn(x) { x % 2 == 0 })
+
+  left
+  |> gs.to_list
+  |> should.equal([2, 4])
+
+  right
+  |> gs.to_list
+  |> should.equal([1, 3, 5])
+
+  // Test empty stream
+  let #(left2, right2, _) =
+    gs.from_empty()
+    |> gs.split(fn(_) { True })
+
+  left2
+  |> gs.to_list
+  |> should.equal([])
+
+  right2
+  |> gs.to_list
+  |> should.equal([])
+
+  // Test single element
+  let #(left3, right3, _) =
+    gs.from_pure(1)
+    |> gs.split(fn(x) { x == 1 })
+
+  left3
+  |> gs.to_list
+  |> should.equal([1])
+
+  right3
+  |> gs.to_list
+  |> should.equal([])
 }

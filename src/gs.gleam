@@ -2,6 +2,7 @@ import gleam/erlang/process.{type Subject}
 import gleam/io
 import gleam/list
 import gleam/option.{type Option, None, Some}
+import gleam/otp/task
 import gs/internal/utils
 
 /// A stream of values of type `a`.
@@ -172,10 +173,11 @@ pub fn from_timestamp_eval() -> Stream(Int) {
   Stream(pull: fn() { Some(#(utils.timestamp(), from_timestamp_eval())) })
 }
 
-pub fn from_subject(subject: Subject(a)) -> Stream(a) {
+pub fn from_subject(subject: Subject(Option(a))) -> Stream(a) {
   Stream(pull: fn() {
     case process.receive_forever(subject) {
-      value -> Some(#(value, from_subject(subject)))
+      Some(value) -> Some(#(value, from_subject(subject)))
+      None -> None
     }
   })
 }
@@ -563,6 +565,33 @@ pub fn sleep(stream: Stream(a), delay_ms: Int) -> Stream(a) {
   })
 }
 
+pub fn split(
+  stream: Stream(a),
+  pred: fn(a) -> Bool,
+) -> #(Stream(a), Stream(a), task.Task(Nil)) {
+  let subject_left = process.new_subject()
+  let subject_right = process.new_subject()
+
+  let task =
+    task.async(fn() {
+      stream
+      |> tap(fn(x) {
+        case pred(x) {
+          True -> process.send(subject_left, Some(x))
+          False -> process.send(subject_right, Some(x))
+        }
+      })
+      |> to_nil
+
+      process.send(subject_left, None)
+      process.send(subject_right, None)
+    })
+
+  let left = subject_left |> from_subject |> filter(pred)
+  let right = subject_right |> from_subject |> filter(fn(a) { !pred(a) })
+  #(left, right, task)
+}
+
 /// Folds a stream into a single value.
 /// 
 /// Example:
@@ -607,4 +636,14 @@ pub fn to_option(stream: Stream(a)) -> Option(a) {
     Some(#(value, _)) -> Some(value)
     None -> None
   }
+}
+
+pub fn to_subject(stream: Stream(a)) -> #(Subject(Option(a)), task.Task(Nil)) {
+  let subject = process.new_subject()
+  let task =
+    task.async(fn() {
+      to_fold(stream, Nil, fn(_, x) { process.send(subject, Some(x)) })
+      process.send(subject, None)
+    })
+  #(subject, task)
 }
