@@ -172,6 +172,23 @@ pub fn from_timestamp_eval() -> Stream(Int) {
   Stream(pull: fn() { Some(#(utils.timestamp(), from_timestamp_eval())) })
 }
 
+pub fn from_subject(subject: Subject(a)) -> Stream(a) {
+  Stream(pull: fn() {
+    case process.receive_forever(subject) {
+      value -> Some(#(value, from_subject(subject)))
+    }
+  })
+}
+
+pub fn from_subject_timeout(subject: Subject(a), timeout_ms: Int) -> Stream(a) {
+  Stream(pull: fn() {
+    case process.receive(subject, timeout_ms) {
+      Ok(value) -> Some(#(value, from_subject_timeout(subject, timeout_ms)))
+      Error(Nil) -> None
+    }
+  })
+}
+
 /// Maps a function over a stream.
 /// 
 /// Example:

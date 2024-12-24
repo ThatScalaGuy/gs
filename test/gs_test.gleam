@@ -1,3 +1,4 @@
+import gleam/erlang/process
 import gleam/list
 import gleam/option
 import gleeunit
@@ -360,4 +361,19 @@ pub fn from_tick_test() {
   |> gs.to_list
   |> list.length
   |> should.equal(3)
+}
+
+pub fn from_subject_test() {
+  let subject = process.new_subject()
+  let subject_stream =
+    gs.from_subject(subject)
+    |> gs.take(3)
+
+  process.send(subject, 1)
+  process.send(subject, 2)
+  process.send(subject, 3)
+
+  subject_stream
+  |> gs.to_list
+  |> should.equal([1, 2, 3])
 }
