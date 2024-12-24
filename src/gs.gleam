@@ -1,3 +1,4 @@
+import gleam/erlang/process.{type Subject}
 import gleam/io
 import gleam/list
 import gleam/option.{type Option, None, Some}
@@ -112,7 +113,7 @@ fn do_from_tick(delay_ms: Int, last_tick: Int) -> Stream(Int) {
     case diff >= delay_ms {
       True -> Some(#(diff - delay_ms, do_from_tick(delay_ms, now)))
       False -> {
-        utils.sleep(delay_ms - diff)
+        process.sleep(delay_ms - diff)
         Some(#(0, do_from_tick(delay_ms, now)))
       }
     }
@@ -540,7 +541,7 @@ pub fn intersperse(stream: Stream(a), separator: a) -> Stream(a) {
 /// ```
 pub fn sleep(stream: Stream(a), delay_ms: Int) -> Stream(a) {
   Stream(pull: fn() {
-    utils.sleep(delay_ms)
+    process.sleep(delay_ms)
     stream.pull()
   })
 }
