@@ -46,7 +46,7 @@ pub fn from_counter(start: Int) -> Stream(Int) {
 /// ```gleam
 /// let stream = from_range(1, 5)
 /// ```
-pub fn from_range(start: Int, end: Int) -> Stream(Int) {
+pub fn from_range(from start: Int, to end: Int) -> Stream(Int) {
   case start <= end {
     True -> Stream(pull: fn() { Some(#(start, from_range(start + 1, end))) })
     False -> from_empty()
@@ -59,7 +59,7 @@ pub fn from_range(start: Int, end: Int) -> Stream(Int) {
 /// ```gleam
 /// let stream = from_range_exclusive(1, 5)
 /// ```
-pub fn from_range_exclusive(start: Int, end: Int) -> Stream(Int) {
+pub fn from_range_exclusive(from start: Int, until end: Int) -> Stream(Int) {
   case start < end {
     True ->
       Stream(pull: fn() { Some(#(start, from_range_exclusive(start + 1, end))) })
@@ -103,19 +103,19 @@ pub fn from_option(option: Option(a)) -> Stream(a) {
 pub fn from_tick(delay_ms: Int) -> Stream(Int) {
   case delay_ms <= 0 {
     True -> panic as "delay_ms must be greater than 0"
-    False -> do_from_tick(delay_ms, 0)
+    False -> from_tick_loop(delay_ms, 0)
   }
 }
 
-fn do_from_tick(delay_ms: Int, last_tick: Int) -> Stream(Int) {
+fn from_tick_loop(delay_ms: Int, last_tick: Int) -> Stream(Int) {
   Stream(pull: fn() {
     let now = utils.timestamp()
     let diff = now - last_tick
     case diff >= delay_ms {
-      True -> Some(#(diff - delay_ms, do_from_tick(delay_ms, now)))
+      True -> Some(#(diff - delay_ms, from_tick_loop(delay_ms, now)))
       False -> {
         process.sleep(delay_ms - diff)
-        Some(#(0, do_from_tick(delay_ms, now)))
+        Some(#(0, from_tick_loop(delay_ms, now)))
       }
     }
   })
@@ -197,7 +197,7 @@ pub fn from_subject_timeout(subject: Subject(a), timeout_ms: Int) -> Stream(a) {
 /// ```gleam
 /// repeat(1) |> map(fn(x) { x + 1 })
 /// ```
-pub fn map(stream: Stream(a), f: fn(a) -> b) -> Stream(b) {
+pub fn map(over stream: Stream(a), with f: fn(a) -> b) -> Stream(b) {
   Stream(pull: fn() {
     case stream.pull() {
       Some(#(value, next)) -> Some(#(f(value), map(next, f)))
@@ -212,7 +212,7 @@ pub fn map(stream: Stream(a), f: fn(a) -> b) -> Stream(b) {
 /// ```gleam
 /// repeat(1) |> flat_map(fn(x) { pure(x + 1) })
 /// ```
-pub fn flat_map(stream: Stream(a), f: fn(a) -> Stream(b)) -> Stream(b) {
+pub fn flat_map(over stream: Stream(a), with f: fn(a) -> Stream(b)) -> Stream(b) {
   Stream(pull: fn() {
     case stream.pull() {
       Some(#(value, next)) -> concat(f(value), flat_map(next, f)).pull()
@@ -227,7 +227,7 @@ pub fn flat_map(stream: Stream(a), f: fn(a) -> Stream(b)) -> Stream(b) {
 /// ```gleam
 /// repeat(1) |> filter(fn(x) { x > 0 })
 /// ```
-pub fn filter(stream: Stream(a), pred: fn(a) -> Bool) -> Stream(a) {
+pub fn filter(stream: Stream(a), keeping pred: fn(a) -> Bool) -> Stream(a) {
   Stream(pull: fn() {
     case stream.pull() {
       Some(#(value, next)) ->
@@ -238,6 +238,16 @@ pub fn filter(stream: Stream(a), pred: fn(a) -> Bool) -> Stream(a) {
       None -> None
     }
   })
+}
+
+/// Finds the first element in a stream that satisfies a predicate.
+/// 
+/// Example:
+/// ```gleam
+/// repeat(1) |> find(fn(x) { x > 0 })
+/// ```
+pub fn find(stream: Stream(a), pred: fn(a) -> Bool) -> Stream(a) {
+  stream |> filter(pred) |> take(1)
 }
 
 /// Drops the first `n` elements from a stream.
