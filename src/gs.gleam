@@ -1,3 +1,4 @@
+import gleam/dict.{type Dict}
 import gleam/erlang/process.{type Subject}
 import gleam/io
 import gleam/list
@@ -78,6 +79,11 @@ pub fn from_list(items: List(a)) -> Stream(a) {
     [] -> from_empty()
     [head, ..tail] -> Stream(pull: fn() { Some(#(head, from_list(tail))) })
   }
+}
+
+/// Creates a stream from a dictionary.
+pub fn from_dict(dict: Dict(a, b)) -> Stream(#(a, b)) {
+  from_list(dict |> dict.to_list)
 }
 
 /// Creates a stream from an option.
