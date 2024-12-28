@@ -3,7 +3,18 @@
 [![Package Version](https://img.shields.io/hexpm/v/gs)](https://hex.pm/packages/gs)
 [![Hex Docs](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/gs/)
 
-`gs` is a lightweight Gleam library for working with streams of data. It provides a variety of functions for creating, transforming, and consuming streams, making it easy to perform local transformations on lists.
+`gs` - A lightweight Gleam library that introduces the `Stream` type for handling lazy value sequences. The library offers comprehensive functionality for creating, transforming, and processing streams, enabling efficient manipulation of sequential data.
+
+## Concept
+
+A `Stream` consists of a *Source* element that generates data, followed by zero or more *Pipe* elements that transform the data, and concludes with a *Sink* element that consumes the data to produce a result.
+
+The *Source* is a lazy data structure that represents a sequence of values. It enables on-demand evaluation, making it highly efficient for processing large or infinite data sets. The library includes several built-in sources, such as **from_list**, **from_range**, and **from_tick**, which all follow the naming convention of starting with **from_**.
+
+The *Pipe* elements are functions that transform the data in the stream. They can be used to map, or filter the data, among other operations like executing side effects. The library provides a variety of built-in pipe functions, such as **map**, **filter**, **fold**, and **take**, which can be combined to create complex data processing pipelines.
+Except for the **fold** function, all pipe functions are lazy and only evaluate the data when needed.
+
+The Sink is a function that processes data from a stream to generate a result. It can collect data into a list or subject. Additionally, a Sink can terminate an infinite stream by consuming elements until a specific termination condition is met, such as **to_nil_error_terminated**.
 
 ## Installation
 

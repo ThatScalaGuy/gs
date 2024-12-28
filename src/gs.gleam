@@ -608,6 +608,26 @@ pub fn split(
   #(left, right, task)
 }
 
+pub fn none_terminated(stream: Stream(Option(a))) -> Stream(a) {
+  Stream(pull: fn() {
+    case stream.pull() {
+      Some(#(Some(value), next)) -> Some(#(value, none_terminated(next)))
+      Some(#(None, _)) -> None
+      None -> None
+    }
+  })
+}
+
+pub fn error_terminated(stream: Stream(Result(a, e))) -> Stream(a) {
+  Stream(pull: fn() {
+    case stream.pull() {
+      Some(#(Ok(value), next)) -> Some(#(value, error_terminated(next)))
+      Some(#(Error(_), _)) -> None
+      None -> None
+    }
+  })
+}
+
 /// Folds a stream into a single value.
 /// 
 /// Example:
@@ -662,4 +682,12 @@ pub fn to_subject(stream: Stream(a)) -> #(Subject(Option(a)), task.Task(Nil)) {
       process.send(subject, None)
     })
   #(subject, task)
+}
+
+pub fn to_nil_none_terminated(stream: Stream(Option(a))) -> Nil {
+  stream |> none_terminated |> to_nil
+}
+
+pub fn to_nil_error_terminated(stream: Stream(Result(a, e))) -> Nil {
+  stream |> error_terminated |> to_nil
 }
