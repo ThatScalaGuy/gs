@@ -386,7 +386,7 @@ pub fn from_subject_test() {
 pub fn split_test() {
   let #(left, right, _) =
     gs.from_list([1, 2, 3, 4, 5])
-    |> gs.split(fn(x) { x % 2 == 0 })
+    |> gs.to_split(fn(x) { x % 2 == 0 })
 
   left
   |> gs.to_list
@@ -399,7 +399,7 @@ pub fn split_test() {
   // Test empty stream
   let #(left2, right2, _) =
     gs.from_empty()
-    |> gs.split(fn(_) { True })
+    |> gs.to_split(fn(_) { True })
 
   left2
   |> gs.to_list
@@ -412,7 +412,7 @@ pub fn split_test() {
   // Test single element
   let #(left3, right3, _) =
     gs.from_pure(1)
-    |> gs.split(fn(x) { x == 1 })
+    |> gs.to_split(fn(x) { x == 1 })
 
   left3
   |> gs.to_list
