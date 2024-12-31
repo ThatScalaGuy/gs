@@ -26,7 +26,6 @@ import gs/internal/utils
 /// - Sequential: Only one element is processed at a time
 /// - Lazy: Elements are not computed until requested
 /// - Finite: Stream ends when None is returned
-/// - Memory efficient: Only one element is held in memory at any time
 ///
 pub type Stream(a) {
   Stream(pull: fn() -> Option(#(a, Stream(a))))
@@ -711,8 +710,7 @@ pub fn from_subject_timeout(subject: Subject(a), timeout_ms: Int) -> Stream(a) {
 /// creating a new stream with the transformed values. The stream maintains its
 /// original structure (length and order) while transforming the elements. The
 /// mapping function is applied lazily - only when elements are pulled from the
-/// resulting stream. This makes it memory efficient for large streams as only
-/// one element is transformed at a time.
+/// resulting stream.
 pub fn map(over stream: Stream(a), with f: fn(a) -> b) -> Stream(b) {
   Stream(pull: fn() {
     case stream.pull() {
@@ -810,8 +808,7 @@ pub fn flat_map(over stream: Stream(a), with f: fn(a) -> Stream(b)) -> Stream(b)
 /// The `filter` function creates a new stream that only includes elements from
 /// the input stream that satisfy the given predicate function. Elements are
 /// processed lazily - the predicate is only evaluated when elements are pulled
-/// from the resulting stream. This makes it memory efficient for large streams
-/// as only one element is tested at a time.
+/// from the resulting stream.
 /// 
 /// The function:
 /// - Preserves the order of elements that pass the filter
@@ -1085,7 +1082,6 @@ pub fn take_while(stream: Stream(a), pred: fn(a) -> Bool) -> Stream(a) {
 /// the first stream until it's exhausted, then yielding all elements from the
 /// second stream. The concatenation is lazy - elements from the second stream
 /// aren't processed until all elements from the first stream have been consumed.
-/// This makes it memory efficient as only one element is held in memory at a time.
 /// 
 /// The function:
 /// - Preserves the order of elements from both streams
@@ -1609,7 +1605,6 @@ pub fn recover(
 /// - No separator before first or after last element
 /// - Processes elements lazily
 /// - Returns empty stream if input is empty
-/// - Memory efficient as it only holds current element
 pub fn intersperse(stream: Stream(a), separator: a) -> Stream(a) {
   Stream(pull: fn() {
     case stream.pull() {
@@ -1674,7 +1669,6 @@ pub fn intersperse(stream: Stream(a), separator: a) -> Stream(a) {
 /// - Adds consistent delays between elements
 /// - Processes elements lazily
 /// - Delay occurs before each element
-/// - Memory efficient as it only holds current element
 /// - Suitable for infinite streams
 pub fn sleep(stream: Stream(a), delay_ms: Int) -> Stream(a) {
   Stream(pull: fn() {
@@ -1724,8 +1718,7 @@ pub fn sleep(stream: Stream(a), delay_ms: Int) -> Stream(a) {
 /// The `flatten` function takes a stream of streams and flattens it into a single
 /// stream by concatenating all inner streams in order. It processes streams lazily,
 /// only pulling from the next inner stream when all elements from the current inner
-/// stream have been consumed. This makes it memory efficient as only one element
-/// is held in memory at a time.
+/// stream have been consumed.
 /// 
 /// The function:
 /// - Preserves the order of elements from both outer and inner streams
