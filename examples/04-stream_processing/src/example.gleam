@@ -1,6 +1,6 @@
 import gleam/io
 import gs.{
-  concat, debug, filter, fold, from_list, map, take_while, to_list, to_nil,
+  concat, debug, filter, from_list, map, take_while, to_fold, to_list, to_nil,
 }
 
 pub fn main() {
@@ -30,6 +30,6 @@ pub fn main() {
   result_stream |> debug |> to_nil
 
   // Fold the stream into a single value (product)
-  let product = result_stream |> fold(1, fn(acc, x) { acc * x })
+  let product = result_stream |> to_fold(1, fn(acc, x) { acc * x })
   io.debug(product)
 }
