@@ -139,6 +139,78 @@ pub fn from_counter(start: Int) -> Stream(Int) {
   Stream(pull: fn() { Some(#(start, from_counter(start + 1))) })
 }
 
+/// Creates a stream by repeatedly applying a state transition function.
+/// 
+/// ## Example
+/// ```gleam
+/// // Generate Fibonacci numbers using state transitions
+/// from_state_eval(
+///   #(0, 1),  // Initial state: (current, next)
+///   fn(state) {
+///     let #(current, next) = state
+///     #(current, #(next, current + next))  // Return (value, new_state)
+///   }
+/// )
+/// |> take(8)
+/// |> to_list()
+/// // Returns [0, 1, 1, 2, 3, 5, 8, 13]
+/// ```
+/// 
+/// ## Visual Representation
+/// ```
+/// Initial State: (0,1)
+///     +---+    +---+    +---+    +---+
+///  -->| 0 |--->| 1 |--->| 1 |--->| 2 |-->...
+///     +---+    +---+    +---+    +---+
+///       ↑        ↑        ↑        ↑
+///    f(0,1)   f(1,1)   f(1,2)   f(2,3)
+///       ↓        ↓        ↓        ↓
+///    (1,1)    (1,2)    (2,3)    (3,5)
+///    state    state    state    state
+/// ```
+/// Where:
+/// - Each element is produced by applying f to the current state
+/// - State transitions drive the stream generation
+/// - f returns both the current value and the next state
+/// 
+/// ## When to Use
+/// - When generating sequences that depend on previous values
+/// - For implementing stateful stream transformations
+/// - When creating mathematical sequences (Fibonacci, etc.)
+/// - For simulating state machines or systems with evolving state
+/// - When implementing iterative algorithms that maintain state
+/// - For creating streams with complex progression rules
+/// - When you need to track auxiliary information between elements
+/// 
+/// ## Description
+/// The `from_state_eval` function creates a stream by repeatedly applying a
+/// state transition function to an initial state. The function takes:
+/// 1. An initial state value of type `b`
+/// 2. A function `f` that takes the current state and returns a tuple of:
+///    - The value to emit in the stream
+///    - The next state to use
+/// 
+/// Each time the stream is pulled, the state transition function is applied
+/// to the current state to produce both the next value and the next state.
+/// This allows for sophisticated sequence generation where each element can
+/// depend on the history of previous elements through the maintained state.
+/// 
+/// The function is particularly useful for:
+/// - Generating mathematical sequences
+/// - Implementing stateful transformations
+/// - Creating streams with complex progression rules
+/// - Simulating systems with evolving state
+/// - Building iterative algorithms that require state
+/// 
+/// The resulting stream continues indefinitely, driven by the state transitions,
+/// until terminated by other stream operations.
+pub fn from_state_eval(current: b, f: fn(b) -> #(a, b)) -> Stream(a) {
+  Stream(pull: fn() {
+    let #(value, next_state) = f(current)
+    Some(#(value, from_state_eval(next_state, f)))
+  })
+}
+
 /// Creates a stream of integers from a start value (inclusive) to an end value (inclusive).
 /// 
 /// ## Example

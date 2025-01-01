@@ -422,3 +422,44 @@ pub fn split_test() {
   |> gs.to_list
   |> should.equal([])
 }
+pub fn from_state_eval_test() {
+  // Basic counter example
+  gs.from_state_eval(
+    0,
+    fn(state) { #(state, state + 1) },
+  )
+  |> gs.take(3)
+  |> gs.to_list
+  |> should.equal([0, 1, 2])
+
+  // Fibonacci sequence example
+  gs.from_state_eval(
+    #(0, 1),
+    fn(state) {
+      let #(current, next) = state
+      #(current, #(next, current + next))
+    },
+  )
+  |> gs.take(6)
+  |> gs.to_list
+  |> should.equal([0, 1, 1, 2, 3, 5])
+
+  // String state example
+  gs.from_state_eval(
+    "a",
+    fn(state) { #(state, state <> "a") },
+  )
+  |> gs.take(3)
+  |> gs.to_list
+  |> should.equal(["a", "aa", "aaa"])
+
+  // Empty stream if never pulled
+  gs.from_state_eval(
+    0,
+    fn(state) { #(state, state + 1) },
+  )
+  |> gs.take(0)
+  |> gs.to_list
+  |> should.equal([])
+}
+
