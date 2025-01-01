@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file.
 - Initial release candidate 3   
 - Add `from_state_eval` source function
 - Add `rate_limit_linear` pipe function
+- Add `rate_limit_backoff` pipe function
 
 ### Changed
 - None
