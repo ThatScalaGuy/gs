@@ -1811,6 +1811,72 @@ pub fn flatten(stream: Stream(Stream(a))) -> Stream(a) {
   })
 }
 
+/// Implements linear rate limiting for a stream by controlling the number of elements processed per time interval.
+/// 
+/// ## Example
+/// ```gleam
+/// > from_range(1, 10)
+/// |> rate_limit_linear(
+///     rate: 2,        // 2 elements
+///     interval_ms: 1000  // per second
+/// )
+/// |> to_list()
+/// // Returns [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] with constant delays
+/// // Processes 2 elements per second
+/// ```
+/// 
+/// ## Visual Representation
+/// ```
+/// Input:  [1]-->[2]-->[3]-->[4]-->[5]-->[6]-->...
+///          |     |     |     |     |     |
+///        500ms 500ms 500ms 500ms 500ms 500ms  (constant delays)
+///          |     |     |     |     |     |
+/// Output: [1]-->[2]-->[3]-->[4]-->[5]-->[6]-->...
+///         |<-1 s.-> | <- 1 s. -> |
+///          (2 items)  (2 items)
+/// ```
+/// 
+/// ## When to Use
+/// - When implementing consistent rate limiting for API calls
+/// - For controlling throughput to external services
+/// - When processing needs to match a specific rate requirement
+/// - For implementing SLA compliance
+/// - When preventing system overload
+/// - For simulating time-constrained processing
+/// - When implementing quota-based systems
+/// 
+/// ## Description
+/// The `rate_limit_linear` function creates a rate-limited stream that processes
+/// a specified number of elements within a given time interval. Unlike exponential
+/// backoff, this maintains a constant rate of processing, making it suitable for
+/// scenarios where consistent throughput is required.
+/// 
+/// Parameters:
+/// - rate: Number of elements to process per interval
+/// - interval_ms: Time interval in milliseconds
+/// 
+/// The function ensures that:
+/// - Elements are processed at a constant rate
+/// - Delays are evenly distributed across the interval
+/// - Processing matches the specified throughput
+/// - Rate limiting is precise and predictable
+/// 
+/// This is particularly useful for:
+/// - API rate limiting compliance
+/// - Resource utilization control
+/// - Service level agreement implementation
+/// - System load management
+/// - Throughput optimization
+/// - Quota enforcement
+pub fn rate_limit_linear(
+  stream: Stream(a),
+  rate: Int,
+  interval_ms: Int,
+) -> Stream(a) {
+  let delay = interval_ms / rate
+  from_tick(delay) |> zip(stream) |> map(fn(value) { value.1 })
+}
+
 /// Creates a stream that terminates when encountering a None value.
 /// 
 /// ## Example

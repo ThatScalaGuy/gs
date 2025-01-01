@@ -422,44 +422,59 @@ pub fn split_test() {
   |> gs.to_list
   |> should.equal([])
 }
+
 pub fn from_state_eval_test() {
   // Basic counter example
-  gs.from_state_eval(
-    0,
-    fn(state) { #(state, state + 1) },
-  )
+  gs.from_state_eval(0, fn(state) { #(state, state + 1) })
   |> gs.take(3)
   |> gs.to_list
   |> should.equal([0, 1, 2])
 
   // Fibonacci sequence example
-  gs.from_state_eval(
-    #(0, 1),
-    fn(state) {
-      let #(current, next) = state
-      #(current, #(next, current + next))
-    },
-  )
+  gs.from_state_eval(#(0, 1), fn(state) {
+    let #(current, next) = state
+    #(current, #(next, current + next))
+  })
   |> gs.take(6)
   |> gs.to_list
   |> should.equal([0, 1, 1, 2, 3, 5])
 
   // String state example
-  gs.from_state_eval(
-    "a",
-    fn(state) { #(state, state <> "a") },
-  )
+  gs.from_state_eval("a", fn(state) { #(state, state <> "a") })
   |> gs.take(3)
   |> gs.to_list
   |> should.equal(["a", "aa", "aaa"])
 
   // Empty stream if never pulled
-  gs.from_state_eval(
-    0,
-    fn(state) { #(state, state + 1) },
-  )
+  gs.from_state_eval(0, fn(state) { #(state, state + 1) })
   |> gs.take(0)
   |> gs.to_list
   |> should.equal([])
 }
 
+pub fn rate_limit_linear_test() {
+  // Test basic functionality - should emit 2 elements per second
+  gs.from_list([1, 2, 3, 4])
+  |> gs.rate_limit_linear(2, 1000)
+  |> gs.take(4)
+  |> gs.to_list
+  |> should.equal([1, 2, 3, 4])
+
+  // Test empty stream
+  gs.from_empty()
+  |> gs.rate_limit_linear(2, 1000)
+  |> gs.to_list
+  |> should.equal([])
+
+  // Test single element
+  gs.from_pure(1)
+  |> gs.rate_limit_linear(1, 1000)
+  |> gs.to_list
+  |> should.equal([1])
+
+  // Test with faster rate (500ms interval)
+  gs.from_list([1, 2])
+  |> gs.rate_limit_linear(2, 500)
+  |> gs.to_list
+  |> should.equal([1, 2])
+}
