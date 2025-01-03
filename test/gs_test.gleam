@@ -478,3 +478,29 @@ pub fn rate_limit_linear_test() {
   |> gs.to_list
   |> should.equal([1, 2])
 }
+pub fn count_test() {
+  // Basic counting
+  gs.from_list([1, 2, 3])
+  |> gs.count() 
+  |> gs.to_list
+  |> should.equal([#(1, 1), #(2, 2), #(3, 3)])
+
+  // Empty stream
+  gs.from_empty()
+  |> gs.count()
+  |> gs.to_list
+  |> should.equal([])
+
+  // Single element 
+  gs.from_pure(42)
+  |> gs.count()
+  |> gs.to_list
+  |> should.equal([#(42, 1)])
+
+  // Test with take
+  gs.from_counter(1)
+  |> gs.count()
+  |> gs.take(3)
+  |> gs.to_list
+  |> should.equal([#(1, 1), #(2, 2), #(3, 3)])
+}

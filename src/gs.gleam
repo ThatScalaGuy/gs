@@ -1751,6 +1751,62 @@ pub fn sleep(stream: Stream(a), delay_ms: Int) -> Stream(a) {
   })
 }
 
+/// Counts elements as they pass through the stream, yielding tuples of elements and their count.
+/// 
+/// ## Example
+/// ```gleam
+/// > from_range(1, 3)
+/// |> count()
+/// |> to_list()
+/// [#(1, 1), #(2, 2), #(3, 3)]
+/// ```
+/// 
+/// ## Visual Representation
+/// ```
+/// Input:     [1]---->[2]---->[3]-->|
+///             |       |       |
+///         count=1  count=2  count=3
+///             |       |       |
+///             v       v       v
+/// Output: [(1,1)]->[(2,2)]->[(3,3)]-->|
+/// ```
+/// Where:
+/// - `|` represents the end of the stream
+/// - Each element is paired with its count
+/// - Count increases monotonically
+/// 
+/// ## When to Use
+/// - When you need to track how many elements have been processed
+/// - For implementing progress tracking in stream processing
+/// - When you need element indices in a stream
+/// - For debugging or monitoring stream flow
+/// - When implementing stateful stream operations
+/// - For adding sequence numbers to stream elements
+/// 
+/// ## Description
+/// The `count` function transforms a stream by pairing each element with a
+/// running count of how many elements have been processed. It maintains an
+/// internal counter that increments for each element, starting from 1.
+/// 
+/// Key characteristics:
+/// - Preserves original elements
+/// - Adds monotonic counting
+/// - Processes elements lazily
+/// - Count starts at 1
+/// - Returns tuples of (element, count)
+pub fn count(stream: Stream(a)) -> Stream(#(a, Int)) {
+  count_loop(stream, 1)
+}
+
+fn count_loop(stream: Stream(a), counter: Int) -> Stream(#(a, Int)) {
+  Stream(pull: fn() {
+    case stream.pull() {
+      Some(#(value, next)) -> Some(#(#(value, counter), count_loop(next, counter + 1)))
+      None -> None
+    }
+  })
+}
+
 /// Flattens a stream of streams into a single stream.
 /// 
 /// ## Example
