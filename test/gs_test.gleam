@@ -554,3 +554,53 @@ pub fn window_test() {
   |> gs.to_list
   |> should.equal([[1, 2, 3]])
 }
+
+pub fn buffer_test() {
+  // Basic buffering with Wait strategy
+  gs.from_list([1, 2, 3, 4, 5])
+  |> gs.buffer(3, gs.Wait)
+  |> gs.to_list
+  |> should.equal([1, 2, 3, 4, 5])
+
+  // Empty stream
+  gs.from_empty()
+  |> gs.buffer(3, gs.Wait)
+  |> gs.to_list
+  |> should.equal([])
+
+  // Single element
+  gs.from_pure(42)
+  |> gs.buffer(2, gs.Wait)
+  |> gs.to_list
+  |> should.equal([42])
+
+  // Drop strategy
+  gs.from_list([1, 2, 3, 4, 5])
+  |> gs.buffer(2, gs.Drop)
+  |> gs.to_list
+  |> should.equal([1, 2, 3, 4, 5])
+
+  // Stop strategy
+  gs.from_list([1, 2, 3])
+  |> gs.buffer(2, gs.Stop)
+  |> gs.to_list
+  |> should.equal([1, 2, 3])
+
+  // Test with infinite stream and take
+  gs.from_counter(1)
+  |> gs.buffer(3, gs.Wait)
+  |> gs.take(5)
+  |> gs.to_list
+  |> should.equal([1, 2, 3, 4, 5])
+
+  // Test with slow consumer using sleep
+  gs.from_list([1, 2, 3])
+  |> gs.buffer(2, gs.Wait)
+  |> gs.map(fn(x) {
+    process.sleep(100)
+    // Simulate slow processing
+    x
+  })
+  |> gs.to_list
+  |> should.equal([1, 2, 3])
+}

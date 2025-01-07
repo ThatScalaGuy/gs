@@ -7,6 +7,7 @@ import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/otp/task
 import gleam/set.{type Set}
+import gs/internal/queue
 import gs/internal/utils
 
 /// A Stream represents a lazy, pull-based sequence of elements.
@@ -31,6 +32,13 @@ import gs/internal/utils
 ///
 pub type Stream(a) {
   Stream(pull: fn() -> Option(#(a, Stream(a))))
+}
+
+pub type OverflowStrategy {
+  Wait
+  Drop
+  Stop
+  Panic
 }
 
 /// Creates a new empty stream.
@@ -1460,6 +1468,129 @@ pub fn zip_with(
           None -> None
         }
       None -> None
+    }
+  })
+}
+
+/// Creates a buffered stream that holds elements in a queue with specified overflow strategy.
+/// 
+/// ## Example
+/// ```gleam
+/// > from_range(1, 10)
+/// |> buffer(
+///     size: 3,            // Buffer capacity
+///     mode: Wait          // Wait when buffer is full
+/// )
+/// |> tap(fn(x) { process.sleep(100) }) // Simulate slow processing
+/// |> to_list()
+/// // Returns [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] with buffering
+/// ```
+/// 
+/// ## Visual Representation
+/// ```
+/// Fast producer, slow consumer with buffer:
+/// 
+///           +----------------Buffer (size 3)----------------+
+///           |  +---+    +---+    +---+                    |
+/// Producer  |  | 1 |    | 2 |    | 3 |    (waiting...)   |  Consumer
+/// --------->|  +---+    +---+    +---+                    |---------->
+/// [4,5,6,..]|  └─────────────────────┘                    | [1,2,3,..]
+///           +--------------------------------------------+
+/// 
+/// Strategy behaviors when buffer is full:
+/// - Wait:  Producer pauses until space available
+/// - Drop:  New elements are discarded
+/// - Stop:  Stream terminates
+/// - Panic: Raises an error
+/// ```
+/// 
+/// ## When to Use
+/// - When processing speeds differ between producer and consumer
+/// - For implementing backpressure mechanisms
+/// - When you need to smooth out processing spikes
+/// - For rate-limiting or flow control
+/// - When implementing producer-consumer patterns
+/// - For managing memory usage with fast producers
+/// - When implementing stream processing pipelines
+/// 
+/// ## Description
+/// The `buffer` function creates a buffered stream that can hold a specified
+/// number of elements in a queue. It's particularly useful when dealing with
+/// producers and consumers operating at different speeds. The function takes:
+/// 1. A stream to buffer
+/// 2. A buffer size limit
+/// 3. An overflow strategy specifying behavior when the buffer is full
+/// 
+/// Overflow Strategies:
+/// - `Wait`: Producer waits until space is available (backpressure)
+/// - `Drop`: New elements are discarded when buffer is full
+/// - `Stop`: Stream terminates when buffer overflows
+/// - `Panic`: Raises an error on buffer overflow
+/// 
+/// The buffering mechanism:
+/// - Creates an asynchronous queue of specified size
+/// - Processes elements through the queue in FIFO order
+/// - Applies the specified overflow strategy when full
+/// - Maintains element order
+/// - Handles stream termination gracefully
+/// 
+/// This is particularly useful for:
+/// - Managing producer-consumer speed differences
+/// - Implementing backpressure
+/// - Controlling memory usage
+/// - Smoothing out processing irregularities
+/// - Building robust streaming pipelines
+pub fn buffer(stream: Stream(a), size: Int, mode: OverflowStrategy) -> Stream(a) {
+  Stream(pull: fn() {
+    let assert Ok(pid) = queue.start(size)
+    case stream.pull() {
+      Some(#(value, next)) -> {
+        task.async(fn() { fill_buffer(next, mode, pid) |> to_nil() })
+        Some(#(value, read_buffer(pid)))
+      }
+      None -> None
+    }
+  })
+}
+
+fn read_buffer(pid: process.Subject(queue.Message(Option(a)))) -> Stream(a) {
+  Stream(pull: fn() {
+    case process.call_forever(pid, queue.Pop) {
+      Some(Some(value)) -> Some(#(value, read_buffer(pid)))
+      Some(None) -> None
+      None -> read_buffer(pid).pull()
+    }
+  })
+}
+
+fn fill_buffer(
+  stream: Stream(a),
+  mode: OverflowStrategy,
+  pid: process.Subject(queue.Message(Option(a))),
+) -> Stream(a) {
+  Stream(pull: fn() {
+    case stream.pull() {
+      Some(#(value, next)) ->
+        case process.call_forever(pid, fn(s) { queue.Push(s, Some(value)) }) {
+          True -> fill_buffer(next, mode, pid).pull()
+          False ->
+            case mode {
+              Wait -> fill_buffer(stream, mode, pid).pull()
+              Drop -> fill_buffer(next, mode, pid).pull()
+              Stop -> None
+              Panic -> panic as "Buffer overflow"
+            }
+        }
+      None ->
+        case process.call_forever(pid, fn(s) { queue.Push(s, None) }) {
+          True -> None
+          False ->
+            case mode {
+              Wait | Drop -> fill_buffer(stream, mode, pid).pull()
+              Stop -> None
+              Panic -> panic as "Buffer overflow"
+            }
+        }
     }
   })
 }

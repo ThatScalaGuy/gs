@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file.
 - Add `rate_limit_backoff` pipe function
 = Add `count` pipe function
 - Add `window` pipe function
+- Add `buffer` pipe function
 
 ### Changed
 - None
