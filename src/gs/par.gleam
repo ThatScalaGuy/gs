@@ -25,7 +25,7 @@ pub fn par_map(
   stream
   |> gs.chunks(workers)
   |> gs.flat_map(fn(elms) {
-    elms 
+    elms
     |> list.map(fn(elm) { task.async(fn() { mapper(elm) }) })
     |> list.map(fn(t) { task.await_forever(t) })
     |> gs.from_list
