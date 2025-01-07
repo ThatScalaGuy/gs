@@ -1263,6 +1263,79 @@ pub fn tap(stream: Stream(a), f: fn(a) -> b) -> Stream(a) {
   })
 }
 
+/// Buffers a stream into overlapping windows of a specified size.
+/// 
+/// ## Example
+/// ```gleam
+/// > from_range(1, 5)
+/// |> window(3)
+/// |> to_list()
+/// [[1, 2, 3], [2, 3, 4], [3, 4, 5]]
+/// ```
+/// 
+/// ## Visual Representation
+/// ```
+/// Input:     [1]-->[2]-->[3]-->[4]-->[5]-->|
+///             |     |     |     |     |
+///             |    [1,2] [1,2,3]    |
+///             |     |     |     |    |
+///             |     |    [2,3,4]    |
+///             |     |     |     |    |
+///             |     |    [3,4,5]    |
+///             
+/// Output: [[1,2,3], [2,3,4], [3,4,5]]
+/// ```
+/// Where:
+/// - `|` represents the end of the stream
+/// - Each window overlaps with the next
+/// - Windows slide by one element each time
+/// 
+/// ## When to Use
+/// - For implementing sliding window operations
+/// - When processing time series data with overlapping windows
+/// - For calculating moving averages
+/// - When implementing signal processing algorithms
+/// - For pattern detection in sequential data
+/// - When analyzing trends in streaming data
+/// 
+/// ## Description
+/// The `window` function creates a new stream where elements are grouped into
+/// overlapping windows of the specified size. Each window contains the specified
+/// number of consecutive elements, and windows overlap by size-1 elements. The
+/// function is useful for operations that need to consider multiple consecutive
+/// elements together.
+/// 
+/// Key characteristics:
+/// - Creates overlapping windows of fixed size
+/// - Windows slide by one element each time
+/// - Preserves element order within windows
+/// - Returns empty stream if size <= 0
+/// - Processes elements lazily
+/// - Memory usage proportional to window size
+pub fn window(stream: Stream(a), size: Int) -> Stream(List(a)) {
+  case size <= 0 {
+    True -> from_empty()
+    False -> Stream(pull: fn() { take_window(stream, size, []).pull() })
+  }
+}
+
+fn take_window(stream: Stream(a), size: Int, acc: List(a)) -> Stream(List(a)) {
+  Stream(pull: fn() {
+    case size == list.length(acc) {
+      True ->
+        Some(#(
+          list.reverse(acc),
+          take_window(stream, size, list.take(acc, list.length(acc) - 1)),
+        ))
+      False ->
+        case stream.pull() {
+          Some(#(value, next)) -> take_window(next, size, [value, ..acc]).pull()
+          None -> None
+        }
+    }
+  })
+}
+
 /// Zips two streams together into a stream of tuples.
 /// 
 /// ## Example
@@ -1801,7 +1874,8 @@ pub fn count(stream: Stream(a)) -> Stream(#(a, Int)) {
 fn count_loop(stream: Stream(a), counter: Int) -> Stream(#(a, Int)) {
   Stream(pull: fn() {
     case stream.pull() {
-      Some(#(value, next)) -> Some(#(#(value, counter), count_loop(next, counter + 1)))
+      Some(#(value, next)) ->
+        Some(#(#(value, counter), count_loop(next, counter + 1)))
       None -> None
     }
   })

@@ -478,10 +478,11 @@ pub fn rate_limit_linear_test() {
   |> gs.to_list
   |> should.equal([1, 2])
 }
+
 pub fn count_test() {
   // Basic counting
   gs.from_list([1, 2, 3])
-  |> gs.count() 
+  |> gs.count()
   |> gs.to_list
   |> should.equal([#(1, 1), #(2, 2), #(3, 3)])
 
@@ -503,4 +504,53 @@ pub fn count_test() {
   |> gs.take(3)
   |> gs.to_list
   |> should.equal([#(1, 1), #(2, 2), #(3, 3)])
+}
+
+pub fn window_test() {
+  // Basic windowing with complete windows
+  gs.from_list([1, 2, 3, 4, 5])
+  |> gs.window(3)
+  |> gs.to_list
+  |> should.equal([[1, 2, 3], [2, 3, 4], [3, 4, 5]])
+
+  // Empty stream
+  gs.from_empty()
+  |> gs.window(3)
+  |> gs.to_list
+  |> should.equal([])
+
+  // Stream shorter than window size
+  gs.from_list([1, 2])
+  |> gs.window(3)
+  |> gs.to_list
+  |> should.equal([])
+
+  // Single element stream
+  gs.from_pure(1)
+  |> gs.window(2)
+  |> gs.to_list
+  |> should.equal([])
+
+  // Window size of 1 (should return single element lists)
+  gs.from_list([1, 2, 3])
+  |> gs.window(1)
+  |> gs.to_list
+  |> should.equal([[1], [2], [3]])
+
+  // Invalid window size
+  gs.from_list([1, 2, 3])
+  |> gs.window(0)
+  |> gs.to_list
+  |> should.equal([])
+
+  gs.from_list([1, 2, 3])
+  |> gs.window(-1)
+  |> gs.to_list
+  |> should.equal([])
+
+  // Window size exactly matches stream length
+  gs.from_list([1, 2, 3])
+  |> gs.window(3)
+  |> gs.to_list
+  |> should.equal([[1, 2, 3]])
 }
