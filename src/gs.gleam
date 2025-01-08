@@ -910,6 +910,87 @@ pub fn filter(stream: Stream(a), keeping pred: fn(a) -> Bool) -> Stream(a) {
   })
 }
 
+/// Filters elements from a stream based on a predicate function that has access to both
+/// the previous and current elements.
+/// 
+/// ## Example
+/// ```gleam
+/// > from_range(1, 5)
+/// |> filter_with_previous(fn(prev, current) {
+///   case prev {
+///     Some(p) -> current > p  // Keep only increasing values
+///     None -> True  // Always keep first element
+///   }
+/// })
+/// |> to_list()
+/// [1, 2, 3, 4, 5]  // All values kept (increasing sequence)
+/// ```
+/// 
+/// ## Visual Representation
+/// ```
+/// Input:     [1]-->[2]-->[3]-->[2]-->[4]-->|
+///             |     |     |     |     |
+///        p(N,1) p(1,2) p(2,3) p(3,2) p(3,4)
+///             ✓     ✓     ✓     ×     ✓
+///             |     |     |           |
+/// Output:    [1]-->[2]-->[3]-------->[4]-->|
+/// ```
+/// Where:
+/// - `|` represents the end of the stream
+/// - `p(prev,curr)` is the predicate function with previous and current value
+/// - `N` represents None (no previous value)
+/// - `✓` indicates element was kept
+/// - `×` indicates element was filtered out
+/// 
+/// ## When to Use
+/// - When filtering needs context from the previous element
+/// - For implementing stateful filtering operations
+/// - When detecting patterns in sequential pairs
+/// - For removing duplicate consecutive elements
+/// - When implementing trend-based filtering
+/// - For quality control based on previous value
+/// 
+/// ## Description
+/// The `filter_with_previous` function creates a new stream that includes elements
+/// based on a predicate function that has access to both the current element and
+/// the previously kept element. This allows for sophisticated filtering based on
+/// the relationship between consecutive elements.
+/// 
+/// The predicate function receives:
+/// 1. An Option containing the previous kept element (None for first element)
+/// 2. The current element being considered
+/// 
+/// Key characteristics:
+/// - Maintains single element history
+/// - Allows stateful filtering decisions
+/// - Processes elements lazily
+/// - Preserves order of kept elements
+/// - Memory usage is constant (only one previous element)
+pub fn filter_with_previous(
+  stream: Stream(a),
+  keeping pred: fn(Option(a), a) -> Bool,
+) -> Stream(a) {
+  filter_with_previous_loop(stream, None, pred)
+}
+
+fn filter_with_previous_loop(
+  stream: Stream(a),
+  previous: Option(a),
+  pred: fn(Option(a), a) -> Bool,
+) -> Stream(a) {
+  Stream(pull: fn() {
+    case stream.pull() {
+      Some(#(value, next)) -> {
+        case pred(previous, value) {
+          True ->
+            Some(#(value, filter_with_previous_loop(next, Some(value), pred)))
+          False -> filter_with_previous_loop(next, previous, pred).pull()
+        }
+      }
+      None -> None
+    }
+  })
+}
 /// Finds the first element in a stream that satisfies a predicate and returns a stream containing only that element.
 /// 
 /// ## Example

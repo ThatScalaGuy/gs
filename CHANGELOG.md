@@ -3,7 +3,7 @@ All notable changes to this project will be documented in this file.
 
 ## [1.1.0-beta.1] - next
 - Add `bracket` pipe function
-
+- Add `filter_with_previous` pipe function
 
 ## [1.0.0] - 7. Jan 2024
 
