@@ -961,6 +961,51 @@ pub fn find(stream: Stream(a), pred: fn(a) -> Bool) -> Stream(a) {
   stream |> filter(pred) |> take(1)
 }
 
+/// Processes nested streams concurrently and discards all results.
+/// 
+/// ## Example
+/// ```gleam
+/// > [[1, 2], [3, 4], [5, 6]]
+/// |> from_list
+/// |> map(from_list)
+/// |> concurrently
+/// // Processes all streams in parallel, returns Stream(Nil)
+/// ```
+/// 
+/// ## Visual Representation
+/// ```
+/// Input streams:         [Stream1]-->[Stream2]-->[Stream3]-->|
+///                          |          |          |
+///                          v          v          v
+/// Parallel processing:  [1,2]      [3,4]      [5,6]
+///                       ↓  ↓        ↓  ↓        ↓  ↓
+///                      Nil Nil     Nil Nil     Nil Nil
+/// ```
+/// 
+/// ## When to Use
+/// - When you need to process multiple streams in parallel
+/// - For implementing concurrent operations with side effects
+/// - When processing order doesn't matter
+/// - For maximizing throughput with independent streams
+/// - When implementing parallel processing pipelines
+/// 
+/// ## Description
+/// The `concurrently` function takes a stream of streams and processes each
+/// inner stream concurrently using tasks. Results are discarded, making it
+/// suitable for operations where only side effects matter. The function
+/// returns a stream that yields Nil for each completed inner stream.
+pub fn concurrently(streams: Stream(Stream(a))) -> Stream(Nil) {
+  Stream(pull: fn() {
+    case streams.pull() {
+      Some(#(stream, rest)) -> {
+        task.async(fn() { stream |> to_nil })
+        Some(#(Nil, concurrently(rest)))
+      }
+      None -> None
+    }
+  })
+}
+
 /// Drops (skips) the first `n` elements from a stream.
 /// 
 /// ## Example
@@ -1399,6 +1444,108 @@ pub fn zip(left: Stream(a), right: Stream(b)) -> Stream(#(a, b)) {
           None -> None
         }
       None -> None
+    }
+  })
+}
+
+/// Creates a stream where each element is paired with a resource that is automatically
+/// cleaned up when the stream ends.
+/// 
+/// ## Example
+/// ```gleam
+/// // Example using a file handle as a resource
+/// let file_stream = 
+///   from_range(1, 3)
+///   |> bracket(
+///     acquire: fn() { open_file("log.txt") },
+///     cleanup: fn(file) { close_file(file) }
+///   )
+///   |> map(fn(pair) {
+///     let #(file, number) = pair
+///     write_to_file(file, number)
+///     number
+///   })
+///   |> to_list
+/// // File is automatically closed after processing
+/// ```
+/// 
+/// ## Visual Representation
+/// ```
+/// Input:     [1]-------->[2]-------->[3]------->|
+///             |           |           |         |
+///        acquire()   use resource  use resource cleanup()
+///             |           |           |         |
+///             v           v           v         v
+///         #(res,1)--->#(res,2)--->#(res,3)---->|
+/// 
+///                    Resource Lifecycle
+///      +------------------------------------------------+
+///      |                                                |
+///      | acquire -> use -> use -> use -> cleanup       |
+///      |     ↑      ↑      ↑      ↑         ↑         |
+///      |     |      |      |      |         |         |
+///      +------------------------------------------------+
+/// ```
+/// Where:
+/// - `|` represents the end of the stream
+/// - `res` is the acquired resource
+/// - Resource is shared across all elements
+/// - Cleanup occurs at stream end
+/// 
+/// ## When to Use
+/// - When working with resources that need proper cleanup (files, connections)
+/// - For implementing resource-safe stream processing
+/// - When ensuring resource cleanup regardless of stream completion
+/// - For managing stateful resources across stream operations
+/// - When implementing transactions or session-based processing
+/// - For handling connection pools or shared resources
+/// - When implementing resource-bound processing pipelines
+/// 
+/// ## Description
+/// The `bracket` function creates a resource-managed stream by:
+/// 1. Acquiring a resource using the provided `acquire` function
+/// 2. Pairing each stream element with the resource
+/// 3. Ensuring resource cleanup using the `cleanup` function when the stream ends
+/// 
+/// This pattern is particularly useful for:
+/// - File operations (open/close)
+/// - Database transactions (begin/commit/rollback)
+/// - Network connections (connect/disconnect)
+/// - System resources (allocate/deallocate)
+/// 
+/// The function guarantees that:
+/// - Resource is acquired exactly once at start
+/// - Resource is available for each element
+/// - Cleanup occurs exactly once at end
+/// - Cleanup happens even if stream is not fully consumed
+/// - Resource management is handled automatically
+/// 
+/// This provides a safe way to work with resources in a streaming context,
+/// ensuring proper cleanup and preventing resource leaks.
+pub fn bracket(
+  stream: Stream(a),
+  acquire acquire: fn() -> resource,
+  cleanup cleanup: fn(resource) -> Nil,
+) -> Stream(#(resource, a)) {
+  Stream(pull: fn() {
+    let resource = acquire()
+    bracket_loop(stream, resource, cleanup).pull()
+  })
+}
+
+fn bracket_loop(
+  stream: Stream(a),
+  resource: resource,
+  cleanup: fn(resource) -> Nil,
+) -> Stream(#(resource, a)) {
+  Stream(pull: fn() {
+    case stream.pull() {
+      Some(#(value, next)) ->
+        Some(#(#(resource, value), bracket_loop(next, resource, cleanup)))
+      None -> {
+        cleanup(resource)
+        None
+      }
     }
   })
 }

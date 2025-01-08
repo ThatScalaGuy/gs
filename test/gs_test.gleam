@@ -604,3 +604,64 @@ pub fn buffer_test() {
   |> gs.to_list
   |> should.equal([1, 2, 3])
 }
+
+pub fn bracket_test() {
+  // Test counter for tracking resource cleanup
+  let counter = process.new_subject()
+
+  // Basic bracket usage with resource tracking
+  gs.from_list([1, 2, 3])
+  |> gs.bracket(
+    acquire: fn() {
+      process.send(counter, "acquired")
+      "resource"
+    },
+    cleanup: fn(_resource) {
+      process.send(counter, "cleaned")
+      Nil
+    },
+  )
+  |> gs.map(fn(pair) { pair.1 })
+  |> gs.to_list
+  |> should.equal([1, 2, 3])
+
+  // Verify resource lifecycle (acquire once, cleanup once)
+  process.receive(counter, 0)
+  |> should.equal(Ok("acquired"))
+  process.receive(counter, 0)
+  |> should.equal(Ok("cleaned"))
+
+  // Test with empty stream
+  gs.from_empty()
+  |> gs.bracket(
+    acquire: fn() {
+      process.send(counter, "acquired")
+      "resource"
+    },
+    cleanup: fn(_resource) {
+      process.send(counter, "cleaned")
+      Nil
+    },
+  )
+  |> gs.to_list
+  |> should.equal([])
+
+  // Verify resource cleanup for empty stream
+  process.receive(counter, 0)
+  |> should.equal(Ok("acquired"))
+  process.receive(counter, 0)
+  |> should.equal(Ok("cleaned"))
+
+  // Test with take operation
+  gs.from_counter(1)
+  |> gs.bracket(
+    acquire: fn() {
+      process.send(counter, "acquired")
+      "resource"
+    },
+    cleanup: fn(_resource) {
+      process.send(counter, "cleaned")
+      Nil
+    },
+  )
+}
