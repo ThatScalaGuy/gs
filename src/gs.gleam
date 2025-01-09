@@ -984,13 +984,14 @@ fn filter_with_previous_loop(
         case pred(previous, value) {
           True ->
             Some(#(value, filter_with_previous_loop(next, Some(value), pred)))
-          False -> filter_with_previous_loop(next, previous, pred).pull()
+          False -> filter_with_previous_loop(next, Some(value), pred).pull()
         }
       }
       None -> None
     }
   })
 }
+
 /// Finds the first element in a stream that satisfies a predicate and returns a stream containing only that element.
 /// 
 /// ## Example

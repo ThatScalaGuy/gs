@@ -665,3 +665,66 @@ pub fn bracket_test() {
     },
   )
 }
+
+pub fn filter_with_previous_test() {
+  // Test basic filtering (keep only increasing values)
+  gs.from_list([1, 2, 2, 3, 2, 4])
+  |> gs.filter_with_previous(fn(prev, current) {
+    case prev {
+      Some(p) -> current > p
+      None -> True
+    }
+  })
+  |> gs.to_list
+  |> should.equal([1, 2, 3, 4])
+
+  // Test empty stream
+  gs.from_empty()
+  |> gs.filter_with_previous(fn(_, _) { True })
+  |> gs.to_list
+  |> should.equal([])
+  // Test single element (first element always passes with None)
+  gs.from_pure(42)
+  |> gs.filter_with_previous(fn(prev, _) {
+    case prev {
+      Some(_) -> False
+      None -> True
+    }
+  })
+  |> gs.to_list
+  |> should.equal([42])
+  // Test filtering all elements except first
+  gs.from_list([1, 2, 3])
+  |> gs.filter_with_previous(fn(prev, _) {
+    case prev {
+      Some(_) -> False
+      None -> True
+    }
+  })
+  |> gs.to_list
+  |> should.equal([1])
+  // Test keeping only duplicates
+  gs.from_list([1, 1, 2, 2, 2, 3, 4, 4])
+  |> gs.filter_with_previous(fn(prev, current) {
+    case prev {
+      Some(p) -> {
+        current == p
+      }
+
+      None -> False
+    }
+  })
+  |> gs.to_list
+  |> should.equal([1, 2, 2, 4])
+  // Test with take
+  gs.from_counter(1)
+  |> gs.filter_with_previous(fn(prev, current) {
+    case prev {
+      Some(p) -> current == p + 1
+      None -> True
+    }
+  })
+  |> gs.take(3)
+  |> gs.to_list
+  |> should.equal([1, 2, 3])
+}
