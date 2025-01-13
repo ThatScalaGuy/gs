@@ -1,6 +1,6 @@
-import gleam/list
-import gleam/otp/task
+import gleam/erlang/process
 import gs.{type Stream}
+import gs/internal/par_map_actor
 
 /// Experimental parallel map operation over a stream.
 ///
@@ -23,11 +23,11 @@ pub fn par_map(
   with mapper: fn(a) -> b,
 ) -> Stream(b) {
   stream
-  |> gs.chunks(workers)
-  |> gs.flat_map(fn(elms) {
-    elms
-    |> list.map(fn(elm) { task.async(fn() { mapper(elm) }) })
-    |> list.map(fn(t) { task.await_forever(t) })
-    |> gs.from_list
+  |> gs.map(fn(ele) {
+    let assert Ok(pid) = par_map_actor.start(mapper)
+    process.call_forever(pid, fn(s) { par_map_actor.Dispatch(s, ele) })
+    pid
   })
+  |> gs.buffer(workers, gs.Wait)
+  |> gs.map(fn(pid) { process.call_forever(pid, par_map_actor.GetResult) })
 }

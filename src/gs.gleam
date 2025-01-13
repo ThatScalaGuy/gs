@@ -1772,13 +1772,8 @@ pub fn zip_with(
 pub fn buffer(stream: Stream(a), size: Int, mode: OverflowStrategy) -> Stream(a) {
   Stream(pull: fn() {
     let assert Ok(pid) = queue.start(size)
-    case stream.pull() {
-      Some(#(value, next)) -> {
-        task.async(fn() { fill_buffer(next, mode, pid) |> to_nil() })
-        Some(#(value, read_buffer(pid)))
-      }
-      None -> None
-    }
+    task.async(fn() { fill_buffer(stream, mode, pid) |> to_nil() })
+    read_buffer(pid).pull()
   })
 }
 
@@ -1804,7 +1799,10 @@ fn fill_buffer(
           True -> fill_buffer(next, mode, pid).pull()
           False ->
             case mode {
-              Wait -> fill_buffer(stream, mode, pid).pull()
+              Wait -> {
+                let current = Stream(pull: fn() { Some(#(value, next)) })
+                fill_buffer(current, mode, pid).pull()
+              }
               Drop -> fill_buffer(next, mode, pid).pull()
               Stop -> None
               Panic -> panic as "Buffer overflow"
@@ -2858,15 +2856,14 @@ pub fn to_option(stream: Stream(a)) -> Option(a) {
 /// 
 /// ## Example
 /// ```gleam
-/// > let #(subject, task) = 
+/// > let subject = process.new_subject()
 /// >   from_range(1, 3)
-/// >   |> to_subject()
+/// >   |> to_subject(subject)
 /// > 
 /// > process.receive(subject, 100)  // -> Ok(Some(1))
 /// > process.receive(subject, 100)  // -> Ok(Some(2))
 /// > process.receive(subject, 100)  // -> Ok(Some(3))
 /// > process.receive(subject, 100)  // -> Ok(None)
-/// > task.await(task)
 /// ```
 /// 
 /// ## Visual Representation
@@ -2914,14 +2911,9 @@ pub fn to_option(stream: Stream(a)) -> Option(a) {
 /// The returned task ensures proper cleanup and should be awaited when the
 /// stream processing is complete. Recipients can receive values from the
 /// subject using `process.receive` or similar functions.
-pub fn to_subject(stream: Stream(a)) -> #(Subject(Option(a)), task.Task(Nil)) {
-  let subject = process.new_subject()
-  let task =
-    task.async(fn() {
-      to_fold(stream, Nil, fn(_, x) { process.send(subject, Some(x)) })
-      process.send(subject, None)
-    })
-  #(subject, task)
+pub fn to_subject(stream: Stream(a), subject: Subject(Option(a))) -> Nil {
+  to_fold(stream, Nil, fn(_, x) { process.send(subject, Some(x)) })
+  process.send(subject, None)
 }
 
 /// Processes a stream of Options until encountering None, discarding all values and returning Nil.
@@ -3031,4 +3023,57 @@ pub fn to_nil_none_terminated(stream: Stream(Option(a))) -> Nil {
 /// - Terminal operation (ends stream processing)
 pub fn to_nil_error_terminated(stream: Stream(Result(a, e))) -> Nil {
   stream |> error_terminated |> to_nil
+}
+
+/// Returns the last element of a stream as an Option.
+/// 
+/// ## Example
+/// ```gleam
+/// > from_range(1, 5)
+/// |> to_last()
+/// Some(5)
+/// 
+/// > from_empty()
+/// |> to_last()
+/// None
+/// ```
+/// 
+/// ## Visual Representation
+/// ```
+/// Input:     [1]-->[2]-->[3]-->[4]-->[5]-->|
+///             |     |     |     |     |
+///           keep  keep  keep  keep  keep
+///             ↓     ↓     ↓     ↓     ↓
+/// Last:   Some(1)->Some(2)->Some(3)->Some(4)->Some(5)
+///                                              ^
+///                                           Result
+/// ```
+/// Where:
+/// - `|` represents the end of the stream
+/// - Each element replaces the previous in Last
+/// - Only the final element is returned
+/// 
+/// ## When to Use
+/// - When you only need the final element of a stream
+/// - For finding the latest value in a sequence
+/// - When implementing reductions that only care about final state
+/// - For getting the most recent element in time-series data
+/// - When you need to know the terminal value of a sequence
+/// - For implementing "latest value" semantics
+/// 
+/// ## Description
+/// The `to_last` function is a terminal operation that processes an entire stream
+/// and returns an Option containing the last element encountered. For empty
+/// streams, it returns None. The function maintains only the most recently seen
+/// value in memory, making it memory efficient regardless of stream length.
+/// 
+/// Key characteristics:
+/// - Returns Some(value) with the last element for non-empty streams
+/// - Returns None for empty streams
+/// - Processes all elements sequentially
+/// - Memory efficient (only stores one element)
+/// - Terminal operation (ends stream processing)
+/// - Suitable for both finite and infinite streams (with proper termination)
+pub fn to_last(stream: Stream(a)) -> Option(a) {
+  to_fold(stream, None, fn(_, x) { Some(x) })
 }

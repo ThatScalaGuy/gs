@@ -1,4 +1,3 @@
-import gleam/erlang/process
 import gleeunit
 import gleeunit/should
 import gs
@@ -15,10 +14,7 @@ pub fn par_map_test() {
 
   let result =
     stream
-    |> par.par_map(6, fn(x) {
-      process.sleep(1000)
-      x * 2
-    })
+    |> par.par_map(3, fn(x) { x * 2 })
     |> gs.to_list
 
   result

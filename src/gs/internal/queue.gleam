@@ -11,11 +11,14 @@ pub type Message(a) {
 }
 
 type State(a) {
-  State(items: List(a), max_size: Int)
+  State(items: List(a), current_size: Int, max_size: Int)
 }
 
 pub fn start(max_size: Int) {
-  actor.start(State(items: [], max_size: max_size), handle_message)
+  actor.start(
+    State(items: [], current_size: 0, max_size: max_size),
+    handle_message,
+  )
 }
 
 fn handle_message(
@@ -24,11 +27,15 @@ fn handle_message(
 ) -> actor.Next(Message(a), State(a)) {
   case msg {
     Push(reply_with, item) -> {
-      case list.length(state.items) < state.max_size {
+      case state.current_size < state.max_size {
         True -> {
           process.send(reply_with, True)
           actor.continue(
-            State(..state, items: list.append(state.items, [item])),
+            State(
+              ..state,
+              current_size: state.current_size + 1,
+              items: list.append(state.items, [item]),
+            ),
           )
         }
         False -> {
@@ -46,7 +53,9 @@ fn handle_message(
         }
         [first, ..rest] -> {
           process.send(reply_with, Some(first))
-          actor.continue(State(..state, items: rest))
+          actor.continue(
+            State(..state, current_size: state.current_size - 1, items: rest),
+          )
         }
       }
     }
@@ -60,7 +69,7 @@ fn handle_message(
     }
 
     Size(reply_with) -> {
-      process.send(reply_with, list.length(state.items))
+      process.send(reply_with, state.current_size)
       actor.continue(state)
     }
   }
