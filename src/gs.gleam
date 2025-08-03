@@ -4120,3 +4120,368 @@ pub fn to_nil_error_terminated(stream: Stream(Result(a, e))) -> Nil {
 pub fn to_last(stream: Stream(a)) -> Option(a) {
   to_fold(stream, None, fn(_, x) { Some(x) })
 }
+
+/// Represents a tree node with a value and children.
+pub type Tree(a) {
+  Tree(value: a, children: List(Tree(a)))
+}
+
+/// Creates a stream from a tree using depth-first pre-order traversal.
+/// 
+/// ## Example
+/// ```gleam
+/// > let tree = Tree(
+/// >   value: 1,
+/// >   children: [
+/// >     Tree(value: 2, children: [
+/// >       Tree(value: 4, children: []),
+/// >       Tree(value: 5, children: [])
+/// >     ]),
+/// >     Tree(value: 3, children: [])
+/// >   ]
+/// > )
+/// > tree |> from_tree_dfs |> to_list()
+/// [1, 2, 4, 5, 3]
+/// ```
+/// 
+/// ## Visual Representation
+/// ```
+/// Tree:        1
+///            /   \
+///           2     3
+///          / \
+///         4   5
+/// 
+/// DFS Stream: [1]-->[2]-->[4]-->[5]-->[3]-->|
+/// ```
+/// 
+/// ## When to Use
+/// - When processing hierarchical data structures
+/// - For tree serialization
+/// - When implementing tree algorithms
+/// - For converting trees to linear sequences
+/// 
+/// ## Description
+/// The `from_tree_dfs` function creates a stream that yields tree nodes
+/// in depth-first pre-order traversal. It processes the root node first,
+/// then recursively processes each child subtree from left to right.
+pub fn from_tree_dfs(tree: Tree(a)) -> Stream(a) {
+  Stream(pull: fn() {
+    Some(#(
+      tree.value,
+      tree.children
+        |> from_list
+        |> flat_map(from_tree_dfs),
+    ))
+  })
+}
+
+/// Creates a stream from a tree using breadth-first traversal.
+/// 
+/// ## Example
+/// ```gleam
+/// > let tree = Tree(
+/// >   value: 1,
+/// >   children: [
+/// >     Tree(value: 2, children: [
+/// >       Tree(value: 4, children: []),
+/// >       Tree(value: 5, children: [])
+/// >     ]),
+/// >     Tree(value: 3, children: [])
+/// >   ]
+/// > )
+/// > tree |> from_tree_bfs |> to_list()
+/// [1, 2, 3, 4, 5]
+/// ```
+/// 
+/// ## Visual Representation
+/// ```
+/// Tree:        1          Level 0
+///            /   \
+///           2     3       Level 1
+///          / \
+///         4   5           Level 2
+/// 
+/// BFS Stream: [1]-->[2]-->[3]-->[4]-->[5]-->|
+/// ```
+/// 
+/// ## When to Use
+/// - When processing trees level by level
+/// - For finding shortest paths in trees
+/// - When implementing level-order algorithms
+/// - For tree visualization by levels
+/// 
+/// ## Description
+/// The `from_tree_bfs` function creates a stream that yields tree nodes
+/// in breadth-first (level-order) traversal. It processes all nodes at
+/// the current level before moving to the next level.
+pub fn from_tree_bfs(tree: Tree(a)) -> Stream(a) {
+  from_tree_bfs_list([tree])
+}
+
+fn from_tree_bfs_list(queue: List(Tree(a))) -> Stream(a) {
+  Stream(pull: fn() {
+    case queue {
+      [] -> None
+      [tree, ..rest] -> {
+        let new_queue = list.append(rest, tree.children)
+        Some(#(tree.value, from_tree_bfs_list(new_queue)))
+      }
+    }
+  })
+}
+
+/// Maps a function over a tree to create a stream of trees.
+/// 
+/// ## Example
+/// ```gleam
+/// > let tree = Tree(value: 1, children: [
+/// >   Tree(value: 2, children: []),
+/// >   Tree(value: 3, children: [])
+/// > ])
+/// > tree 
+/// > |> tree_map(fn(x) { x * 2 })
+/// > |> from_tree_dfs
+/// > |> to_list()
+/// [2, 4, 6]
+/// ```
+/// 
+/// ## Visual Representation
+/// ```
+/// Input:    1        Output:   2
+///         /   \              /   \
+///        2     3            4     6
+/// ```
+/// 
+/// ## When to Use
+/// - When transforming tree values while preserving structure
+/// - For applying operations to all nodes in a tree
+/// - When implementing tree algorithms that modify values
+/// 
+/// ## Description
+/// The `tree_map` function transforms a tree by applying a function to
+/// each node's value while preserving the tree structure.
+pub fn tree_map(tree: Tree(a), f: fn(a) -> b) -> Tree(b) {
+  Tree(
+    value: f(tree.value),
+    children: tree.children |> list.map(fn(child) { tree_map(child, f) }),
+  )
+}
+
+/// Flattens a tree into a stream of paths from root to each leaf.
+/// 
+/// ## Example
+/// ```gleam
+/// > let tree = Tree(
+/// >   value: "a",
+/// >   children: [
+/// >     Tree(value: "b", children: [
+/// >       Tree(value: "d", children: []),
+/// >       Tree(value: "e", children: [])
+/// >     ]),
+/// >     Tree(value: "c", children: [])
+/// >   ]
+/// > )
+/// > tree |> tree_paths |> to_list()
+/// [["a", "b", "d"], ["a", "b", "e"], ["a", "c"]]
+/// ```
+/// 
+/// ## Visual Representation
+/// ```
+/// Tree:      a
+///          /   \
+///         b     c
+///        / \
+///       d   e
+/// 
+/// Paths: ["a","b","d"], ["a","b","e"], ["a","c"]
+/// ```
+/// 
+/// ## When to Use
+/// - When extracting all root-to-leaf paths
+/// - For tree analysis and debugging
+/// - When implementing path-based algorithms
+/// - For generating file paths from directory trees
+/// 
+/// ## Description
+/// The `tree_paths` function creates a stream of lists, where each list
+/// represents a path from the root to a leaf node.
+pub fn tree_paths(tree: Tree(a)) -> Stream(List(a)) {
+  tree_paths_helper(tree, [])
+}
+
+fn tree_paths_helper(tree: Tree(a), path: List(a)) -> Stream(List(a)) {
+  let current_path = list.append(path, [tree.value])
+  case tree.children {
+    [] -> from_pure(current_path)
+    children ->
+      children
+      |> from_list
+      |> flat_map(fn(child) { tree_paths_helper(child, current_path) })
+  }
+}
+
+/// Filters tree nodes based on a predicate, returning a stream of matching subtrees.
+/// 
+/// ## Example
+/// ```gleam
+/// > let tree = Tree(
+/// >   value: 1,
+/// >   children: [
+/// >     Tree(value: 2, children: [
+/// >       Tree(value: 4, children: []),
+/// >       Tree(value: 5, children: [])
+/// >     ]),
+/// >     Tree(value: 3, children: [])
+/// >   ]
+/// > )
+/// > tree 
+/// > |> tree_filter(fn(x) { x > 2 })
+/// > |> map(fn(t) { t.value })
+/// > |> to_list()
+/// [3, 4, 5]
+/// ```
+/// 
+/// ## When to Use
+/// - When searching for specific nodes in a tree
+/// - For extracting subtrees that match criteria
+/// - When implementing tree queries
+/// 
+/// ## Description
+/// The `tree_filter` function creates a stream of subtrees where the
+/// root node satisfies the given predicate.
+pub fn tree_filter(tree: Tree(a), pred: fn(a) -> Bool) -> Stream(Tree(a)) {
+  let subtrees = case pred(tree.value) {
+    True -> from_pure(tree)
+    False -> from_empty()
+  }
+
+  let child_subtrees =
+    tree.children
+    |> from_list
+    |> flat_map(fn(child) { tree_filter(child, pred) })
+
+  concat(subtrees, child_subtrees)
+}
+
+/// Creates a tree from a stream using a key function to determine parent-child relationships.
+/// 
+/// ## Example
+/// ```gleam
+/// > [
+/// >   #(1, None),      // Root
+/// >   #(2, Some(1)),   // Child of 1
+/// >   #(3, Some(1)),   // Child of 1
+/// >   #(4, Some(2)),   // Child of 2
+/// >   #(5, Some(2))    // Child of 2
+/// > ]
+/// > |> from_list
+/// > |> to_tree(
+/// >   root_pred: fn(item) { item.1 == None },
+/// >   parent_key: fn(item) { item.1 },
+/// >   item_key: fn(item) { Some(item.0) },
+/// >   value: fn(item) { item.0 }
+/// > )
+/// > |> option.map(from_tree_dfs)
+/// > |> option.map(to_list)
+/// Some([1, 2, 4, 5, 3])
+/// ```
+/// 
+/// ## When to Use
+/// - When building trees from flat data structures
+/// - For constructing hierarchies from relational data
+/// - When parsing tree-like formats
+/// 
+/// ## Description
+/// The `to_tree` function constructs a tree from a stream of items by
+/// using key functions to determine parent-child relationships.
+pub fn to_tree(
+  stream: Stream(item),
+  root_pred root_pred: fn(item) -> Bool,
+  parent_key parent_key: fn(item) -> Option(key),
+  item_key item_key: fn(item) -> Option(key),
+  value value: fn(item) -> a,
+) -> Option(Tree(a)) {
+  let items = stream |> to_list()
+
+  // Find root
+  let root_item = items |> list.find(root_pred)
+
+  case root_item {
+    Ok(root) -> Some(build_tree(root, items, parent_key, item_key, value))
+    Error(_) -> None
+  }
+}
+
+fn build_tree(
+  item: item,
+  all_items: List(item),
+  parent_key: fn(item) -> Option(key),
+  item_key: fn(item) -> Option(key),
+  value: fn(item) -> a,
+) -> Tree(a) {
+  let my_key = item_key(item)
+
+  let children =
+    all_items
+    |> list.filter(fn(child) { parent_key(child) == my_key })
+    |> list.map(fn(child) {
+      build_tree(child, all_items, parent_key, item_key, value)
+    })
+
+  Tree(value: value(item), children: children)
+}
+
+/// Creates a stream of tree levels (breadth-first levels).
+/// 
+/// ## Example
+/// ```gleam
+/// > let tree = Tree(
+/// >   value: 1,
+/// >   children: [
+/// >     Tree(value: 2, children: [
+/// >       Tree(value: 4, children: []),
+/// >       Tree(value: 5, children: [])
+/// >     ]),
+/// >     Tree(value: 3, children: [])
+/// >   ]
+/// > )
+/// > tree |> tree_levels |> to_list()
+/// [[1], [2, 3], [4, 5]]
+/// ```
+/// 
+/// ## Visual Representation
+/// ```
+/// Tree:        1          Level 0: [1]
+///            /   \
+///           2     3       Level 1: [2, 3]
+///          / \
+///         4   5           Level 2: [4, 5]
+/// ```
+/// 
+/// ## When to Use
+/// - When processing trees level by level
+/// - For tree visualization
+/// - When implementing level-based algorithms
+/// - For analyzing tree depth and width
+/// 
+/// ## Description
+/// The `tree_levels` function creates a stream where each element is a
+/// list containing all nodes at a particular depth level.
+pub fn tree_levels(tree: Tree(a)) -> Stream(List(a)) {
+  tree_levels_helper([tree])
+}
+
+fn tree_levels_helper(trees: List(Tree(a))) -> Stream(List(a)) {
+  case trees {
+    [] -> from_empty()
+    _ -> {
+      let values = trees |> list.map(fn(t) { t.value })
+      let children =
+        trees
+        |> list.flat_map(fn(t) { t.children })
+
+      Stream(pull: fn() { Some(#(values, tree_levels_helper(children))) })
+    }
+  }
+}

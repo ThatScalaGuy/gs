@@ -1038,3 +1038,232 @@ pub fn monitor_and_process_test() {
   |> gs.to_list
   |> should.equal([4, 16, 36, 64, 100])
 }
+
+// Tree function tests
+
+pub fn tree_from_tree_dfs_test() {
+  // Create a test tree:
+  //      1
+  //    /   \
+  //   2     3
+  //  / \
+  // 4   5
+  let tree =
+    gs.Tree(value: 1, children: [
+      gs.Tree(value: 2, children: [
+        gs.Tree(value: 4, children: []),
+        gs.Tree(value: 5, children: []),
+      ]),
+      gs.Tree(value: 3, children: []),
+    ])
+
+  tree
+  |> gs.from_tree_dfs
+  |> gs.to_list
+  |> should.equal([1, 2, 4, 5, 3])
+}
+
+pub fn tree_from_tree_bfs_test() {
+  // Create a test tree:
+  //      1
+  //    /   \
+  //   2     3
+  //  / \
+  // 4   5
+  let tree =
+    gs.Tree(value: 1, children: [
+      gs.Tree(value: 2, children: [
+        gs.Tree(value: 4, children: []),
+        gs.Tree(value: 5, children: []),
+      ]),
+      gs.Tree(value: 3, children: []),
+    ])
+
+  tree
+  |> gs.from_tree_bfs
+  |> gs.to_list
+  |> should.equal([1, 2, 3, 4, 5])
+}
+
+pub fn tree_single_node_test() {
+  let tree = gs.Tree(value: 42, children: [])
+
+  // Test DFS
+  tree
+  |> gs.from_tree_dfs
+  |> gs.to_list
+  |> should.equal([42])
+
+  // Test BFS
+  tree
+  |> gs.from_tree_bfs
+  |> gs.to_list
+  |> should.equal([42])
+}
+
+pub fn tree_map_test() {
+  let tree =
+    gs.Tree(value: 1, children: [
+      gs.Tree(value: 2, children: []),
+      gs.Tree(value: 3, children: []),
+    ])
+
+  let mapped_tree = tree |> gs.tree_map(fn(x) { x * 2 })
+
+  mapped_tree
+  |> gs.from_tree_dfs
+  |> gs.to_list
+  |> should.equal([2, 4, 6])
+}
+
+pub fn tree_paths_test() {
+  let tree =
+    gs.Tree(value: "a", children: [
+      gs.Tree(value: "b", children: [
+        gs.Tree(value: "d", children: []),
+        gs.Tree(value: "e", children: []),
+      ]),
+      gs.Tree(value: "c", children: []),
+    ])
+
+  tree
+  |> gs.tree_paths
+  |> gs.to_list
+  |> should.equal([["a", "b", "d"], ["a", "b", "e"], ["a", "c"]])
+}
+
+pub fn tree_paths_single_leaf_test() {
+  let tree = gs.Tree(value: "root", children: [])
+
+  tree
+  |> gs.tree_paths
+  |> gs.to_list
+  |> should.equal([["root"]])
+}
+
+pub fn tree_filter_test() {
+  let tree =
+    gs.Tree(value: 1, children: [
+      gs.Tree(value: 2, children: [
+        gs.Tree(value: 4, children: []),
+        gs.Tree(value: 5, children: []),
+      ]),
+      gs.Tree(value: 3, children: []),
+    ])
+
+  tree
+  |> gs.tree_filter(fn(x) { x > 2 })
+  |> gs.map(fn(t) { t.value })
+  |> gs.to_list
+  |> should.equal([3, 4, 5])
+}
+
+pub fn tree_filter_no_matches_test() {
+  let tree = gs.Tree(value: 1, children: [gs.Tree(value: 2, children: [])])
+
+  tree
+  |> gs.tree_filter(fn(x) { x > 10 })
+  |> gs.to_list
+  |> should.equal([])
+}
+
+pub fn tree_levels_test() {
+  let tree =
+    gs.Tree(value: 1, children: [
+      gs.Tree(value: 2, children: [
+        gs.Tree(value: 4, children: []),
+        gs.Tree(value: 5, children: []),
+      ]),
+      gs.Tree(value: 3, children: []),
+    ])
+
+  tree
+  |> gs.tree_levels
+  |> gs.to_list
+  |> should.equal([[1], [2, 3], [4, 5]])
+}
+
+pub fn tree_levels_single_node_test() {
+  let tree = gs.Tree(value: 42, children: [])
+
+  tree
+  |> gs.tree_levels
+  |> gs.to_list
+  |> should.equal([[42]])
+}
+
+pub fn to_tree_test() {
+  let items = [
+    #(1, None),
+    // Root
+    #(2, Some(1)),
+    // Child of 1
+    #(3, Some(1)),
+    // Child of 1
+    #(4, Some(2)),
+    // Child of 2
+    #(5, Some(2)),
+    // Child of 2
+  ]
+
+  let result =
+    gs.from_list(items)
+    |> gs.to_tree(
+      root_pred: fn(item) { item.1 == None },
+      parent_key: fn(item) { item.1 },
+      item_key: fn(item) { Some(item.0) },
+      value: fn(item) { item.0 },
+    )
+
+  case result {
+    Some(tree) -> {
+      tree
+      |> gs.from_tree_dfs
+      |> gs.to_list
+      |> should.equal([1, 2, 4, 5, 3])
+    }
+    None -> should.fail()
+  }
+}
+
+pub fn to_tree_no_root_test() {
+  let items = [
+    #(1, Some(99)),
+    // No root (parent doesn't exist)
+    #(2, Some(1)),
+  ]
+
+  gs.from_list(items)
+  |> gs.to_tree(
+    root_pred: fn(item) { item.1 == None },
+    parent_key: fn(item) { item.1 },
+    item_key: fn(item) { Some(item.0) },
+    value: fn(item) { item.0 },
+  )
+  |> should.equal(None)
+}
+
+pub fn tree_complex_test() {
+  // Test combining multiple tree operations
+  let tree =
+    gs.Tree(value: 1, children: [
+      gs.Tree(value: 2, children: [
+        gs.Tree(value: 4, children: []),
+        gs.Tree(value: 5, children: []),
+      ]),
+      gs.Tree(value: 3, children: [gs.Tree(value: 6, children: [])]),
+    ])
+
+  // Map values, then filter, then get paths
+  let result =
+    tree
+    |> gs.tree_map(fn(x) { x * 10 })
+    |> gs.tree_filter(fn(x) { x >= 30 })
+    |> gs.flat_map(gs.tree_paths)
+    |> gs.to_list
+
+  // After mapping: values become 10, 20, 40, 50, 30, 60
+  // After filtering (>= 30): keeps nodes 30, 40, 50, 60
+  // Paths from these filtered subtrees
+  should.be_true(list.length(result) > 0)
+}
