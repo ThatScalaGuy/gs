@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ## [1.1.0-beta.1] - next
 
+### Changed
+
+- Optimised `chunks/2` to track chunk size without repeated length checks, reducing per-element overhead for large streams.
+- Optimised `window/2` to reuse window counts and avoid repeated list traversals while sliding, improving performance of moving-window workloads.
+
+### Fixed
+
+- Ensured `buffer/3` instantiates its queue once per buffered stream and treats non-positive capacities as pass-through, preventing actor leaks and making the API more predictable.
+
 ### Added
 
 - Add `bracket` pipe function

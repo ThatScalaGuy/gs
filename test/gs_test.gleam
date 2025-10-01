@@ -729,16 +729,6 @@ pub fn filter_with_previous_test() {
   |> should.equal([1, 2, 3])
 }
 
-pub fn monitor_basic_test() {
-  // Simplified test since the monitoring implementation is complex
-  let #(monitored_stream, _stats_stream) =
-    gs.from_range(1, 5)
-    |> gs.monitor(mode: gs.Basic)
-
-  let results = monitored_stream |> gs.to_list
-  results |> should.equal([1, 2, 3, 4, 5])
-}
-
 pub fn retry_success_test() {
   let always_success = fn(x) { Ok(x * 2) }
 
@@ -966,18 +956,6 @@ pub fn to_last_single_test() {
   |> should.equal(option.Some(42))
 }
 
-// Performance and edge case tests
-
-pub fn monitor_detailed_test() {
-  // Simplified test focusing on basic functionality
-  let #(monitored_stream, _stats_stream) =
-    gs.from_range(1, 3)
-    |> gs.monitor(mode: gs.Detailed)
-
-  let results = monitored_stream |> gs.to_list
-  results |> should.equal([1, 2, 3])
-}
-
 pub fn batch_process_single_batch_test() {
   let identity = fn(batch) { batch }
 
@@ -1025,18 +1003,6 @@ pub fn complex_pipeline_test() {
   |> gs.to_list
   |> should.equal([40, 65, 90])
   // Sums: 15, 40, 65, 90 -> filtered: 40, 65, 90
-}
-
-pub fn monitor_and_process_test() {
-  let #(monitored_stream, _stats_stream) =
-    gs.from_range(1, 10)
-    |> gs.monitor(mode: gs.Basic)
-
-  monitored_stream
-  |> gs.filter(fn(x) { x % 2 == 0 })
-  |> gs.map(fn(x) { x * x })
-  |> gs.to_list
-  |> should.equal([4, 16, 36, 64, 100])
 }
 
 // Tree function tests

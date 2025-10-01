@@ -1383,7 +1383,7 @@ pub fn chunks(stream: Stream(a), size: Int) -> Stream(List(a)) {
     True -> from_empty()
     False ->
       Stream(pull: fn() {
-        case take_chunk(stream, size, []) {
+        case take_chunk(stream, size, [], 0) {
           Some(#(chunk, rest)) -> Some(#(chunk, chunks(rest, size)))
           None -> None
         }
@@ -1395,12 +1395,14 @@ fn take_chunk(
   stream: Stream(a),
   size: Int,
   acc: List(a),
+  count: Int,
 ) -> Option(#(List(a), Stream(a))) {
-  case size == list.length(acc) {
+  case count == size {
     True -> Some(#(list.reverse(acc), stream))
     False ->
       case stream.pull() {
-        Some(#(value, next)) -> take_chunk(next, size, [value, ..acc])
+        Some(#(value, next)) ->
+          take_chunk(next, size, [value, ..acc], count + 1)
         None ->
           case acc {
             [] -> None
@@ -1480,25 +1482,39 @@ pub fn tap(stream: Stream(a), f: fn(a) -> b) -> Stream(a) {
 pub fn window(stream: Stream(a), size: Int) -> Stream(List(a)) {
   case size <= 0 {
     True -> from_empty()
-    False -> Stream(pull: fn() { take_window(stream, size, []).pull() })
+    False -> Stream(pull: fn() { take_window(stream, size, [], 0).pull() })
   }
 }
 
-fn take_window(stream: Stream(a), size: Int, acc: List(a)) -> Stream(List(a)) {
+fn take_window(
+  stream: Stream(a),
+  size: Int,
+  acc: List(a),
+  count: Int,
+) -> Stream(List(a)) {
   Stream(pull: fn() {
-    case size == list.length(acc) {
+    case count == size {
       True ->
         Some(#(
           list.reverse(acc),
-          take_window(stream, size, list.take(acc, list.length(acc) - 1)),
+          take_window(stream, size, drop_last(acc), count - 1),
         ))
       False ->
         case stream.pull() {
-          Some(#(value, next)) -> take_window(next, size, [value, ..acc]).pull()
+          Some(#(value, next)) ->
+            take_window(next, size, [value, ..acc], count + 1).pull()
           None -> None
         }
     }
   })
+}
+
+fn drop_last(list: List(a)) -> List(a) {
+  case list {
+    [] -> []
+    [_] -> []
+    [head, ..tail] -> [head, ..drop_last(tail)]
+  }
 }
 
 /// Zips two streams together into a stream of tuples.
@@ -1800,11 +1816,14 @@ pub fn zip_with(
 /// - Smoothing out processing irregularities
 /// - Building robust streaming pipelines
 pub fn buffer(stream: Stream(a), size: Int, mode: OverflowStrategy) -> Stream(a) {
-  Stream(pull: fn() {
-    let assert Ok(pid) = queue.start(size)
-    task.async(fn() { fill_buffer(stream, mode, pid) |> to_nil() })
-    read_buffer(pid).pull()
-  })
+  case size <= 0 {
+    True -> stream
+    False -> {
+      let assert Ok(pid) = queue.start(size)
+      task.async(fn() { fill_buffer(stream, mode, pid) |> to_nil() })
+      read_buffer(pid)
+    }
+  }
 }
 
 fn read_buffer(pid: process.Subject(queue.Message(Option(a)))) -> Stream(a) {
@@ -2917,182 +2936,6 @@ pub fn to_option(stream: Stream(a)) -> Option(a) {
   case stream.pull() {
     Some(#(value, _)) -> Some(value)
     None -> None
-  }
-}
-
-/// Statistics about stream processing performance and behavior.
-///
-/// ## Fields
-///
-/// - **elements_processed**: Total number of elements that have been pulled
-/// - **pull_count**: Number of times the stream has been pulled
-/// - **memory_usage_bytes**: Estimated memory usage in bytes
-/// - **start_time_ms**: Timestamp when monitoring started
-/// - **last_pull_time_ms**: Timestamp of the most recent pull operation
-///
-/// ## Usage
-///
-/// Used by `monitor` and `profile` functions to track stream performance
-/// and help with optimization and debugging.
-pub type StreamStats {
-  StreamStats(
-    elements_processed: Int,
-    pull_count: Int,
-    memory_usage_bytes: Int,
-    start_time_ms: Int,
-    last_pull_time_ms: Int,
-  )
-}
-
-/// Performance monitoring mode for stream operations.
-///
-/// ## Modes
-///
-/// - **Basic**: Track element count and pull operations only
-/// - **Detailed**: Include timing information and memory estimation
-/// - **Debug**: Full profiling with detailed logging
-///
-/// ## Performance Impact
-///
-/// - **Basic**: Minimal overhead (~1-2% performance impact)
-/// - **Detailed**: Low overhead (~3-5% performance impact)
-/// - **Debug**: Higher overhead (~10-15% performance impact, includes I/O)
-pub type MonitoringMode {
-  Basic
-  Detailed
-  Debug
-}
-
-/// Creates a monitored stream that tracks performance statistics.
-///
-/// ## Example
-/// ```gleam
-/// > let #(monitored_stream, stats_stream) = 
-/// >   from_range(1, 1000)
-/// >   |> monitor(mode: Detailed)
-/// > 
-/// > let results = monitored_stream |> to_list()
-/// > let final_stats = stats_stream |> to_option()
-/// > // final_stats contains processing metrics
-/// ```
-///
-/// ## Visual Representation
-/// ```
-/// Original Stream:
-///     [1]-->[2]-->[3]-->[4]-->[5]-->|
-///      |     |     |     |     |
-///      v     v     v     v     v
-/// Monitored:
-///     [1]-->[2]-->[3]-->[4]-->[5]-->|
-///      ↓     ↓     ↓     ↓     ↓
-/// Stats: [S1]-->[S2]-->[S3]-->[S4]-->[S5]-->|
-/// ```
-/// Where:
-/// - `|` represents the end of the stream
-/// - `S1`, `S2`, etc. represent statistics snapshots
-/// - Both streams operate in parallel
-///
-/// ## When to Use
-/// - When debugging stream performance issues
-/// - For monitoring production stream processing
-/// - When optimizing stream pipeline performance
-/// - For capacity planning and resource estimation
-/// - When implementing SLA monitoring for stream operations
-/// - For troubleshooting memory or processing bottlenecks
-///
-/// ## Description
-/// The `monitor` function wraps a stream with performance monitoring capabilities.
-/// It returns a tuple containing:
-/// 1. The original stream with monitoring instrumentation
-/// 2. A stats stream that emits performance metrics
-///
-/// The monitoring operates with minimal performance overhead and provides
-/// valuable insights into stream behavior. The stats stream can be processed
-/// independently to implement alerting, logging, or real-time dashboards.
-///
-/// Monitoring capabilities:
-/// - **Element Processing**: Count of processed elements
-/// - **Pull Operations**: Number of stream pull calls
-/// - **Timing**: Processing duration and throughput
-/// - **Memory Estimation**: Approximate memory usage
-/// - **Performance Trends**: Historical processing patterns
-pub fn monitor(
-  stream: Stream(a),
-  mode mode: MonitoringMode,
-) -> #(Stream(a), Stream(StreamStats)) {
-  let start_time = utils.timestamp()
-  let initial_stats =
-    StreamStats(
-      elements_processed: 0,
-      pull_count: 0,
-      memory_usage_bytes: 0,
-      start_time_ms: start_time,
-      last_pull_time_ms: start_time,
-    )
-
-  let #(monitored_stream, stats_subject) =
-    monitor_loop(stream, initial_stats, mode)
-  let stats_stream = from_subject_timeout(stats_subject, 100)
-
-  #(monitored_stream, stats_stream)
-}
-
-fn monitor_loop(
-  stream: Stream(a),
-  stats: StreamStats,
-  mode: MonitoringMode,
-) -> #(Stream(a), Subject(StreamStats)) {
-  let stats_subject = process.new_subject()
-
-  let monitored =
-    Stream(pull: fn() {
-      let current_time = utils.timestamp()
-      let updated_stats =
-        StreamStats(
-          ..stats,
-          pull_count: stats.pull_count + 1,
-          last_pull_time_ms: current_time,
-        )
-
-      case mode {
-        Debug -> {
-          io.debug("Stream pull #" <> int.to_string(updated_stats.pull_count))
-          ""
-        }
-        _ -> ""
-      }
-
-      case stream.pull() {
-        Some(#(value, next)) -> {
-          let final_stats =
-            StreamStats(
-              ..updated_stats,
-              elements_processed: updated_stats.elements_processed + 1,
-              memory_usage_bytes: estimate_memory_usage(mode, value),
-            )
-
-          process.send(stats_subject, final_stats)
-
-          let #(next_monitored, _) = monitor_loop(next, final_stats, mode)
-          Some(#(value, next_monitored))
-        }
-        None -> {
-          process.send(stats_subject, updated_stats)
-          None
-        }
-      }
-    })
-
-  #(monitored, stats_subject)
-}
-
-fn estimate_memory_usage(mode: MonitoringMode, _value: a) -> Int {
-  case mode {
-    Basic -> 0
-    Detailed -> 64
-    // Rough estimate in bytes per element
-    Debug -> 128
-    // More detailed tracking overhead
   }
 }
 
