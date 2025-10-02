@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.1.0-beta.1] - next
+## [1.1.0] - 2. Oct 2024
 
 ### Changed
 
