@@ -1,4 +1,5 @@
 import gleam/io
+import gleam/string
 import gs.{debug, from_repeat, take, to_list, to_nil, zip_with}
 
 pub fn main() {
@@ -14,7 +15,8 @@ pub fn main() {
 
   // Collect the stream into a list and print it
   let result_list = result_stream |> to_list
-  io.debug(result_list)
+  string.inspect(result_list)
+  |> io.println
 
   // Print each element of the stream
   result_stream |> debug |> to_nil

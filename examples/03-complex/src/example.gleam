@@ -1,4 +1,5 @@
 import gleam/io
+import gleam/string
 import gs.{
   debug, filter, from_list, map, take, to_fold, to_list, to_nil, zip_with,
 }
@@ -25,12 +26,14 @@ pub fn main() {
 
   // Collect the stream into a list and print it
   let result_list = result_stream |> to_list
-  io.debug(result_list)
+  string.inspect(result_list)
+  |> io.println
 
   // Print each element of the stream
   result_stream |> debug |> to_nil
 
   // Fold the stream into a single value (sum)
   let sum = result_stream |> to_fold(0, fn(acc, x) { acc + x })
-  io.debug(sum)
+  string.inspect(sum)
+  |> io.println
 }

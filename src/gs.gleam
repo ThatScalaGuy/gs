@@ -1,13 +1,14 @@
 import gleam/dict.{type Dict}
-import gleam/erlang/process.{type Subject}
+import gleam/erlang/process
 import gleam/float
 import gleam/int
 import gleam/io
 import gleam/list
 import gleam/option.{type Option, None, Some}
-import gleam/otp/task
 import gleam/set.{type Set}
+import gleam/string
 import gs/internal/queue
+import gs/internal/task
 import gs/internal/utils
 
 /// A Stream represents a lazy, pull-based sequence of elements.
@@ -719,7 +720,7 @@ pub fn from_timestamp_eval() -> Stream(Int) {
 /// at which point it terminates. This makes it useful for converting
 /// asynchronous message-based communication into a sequential stream
 /// of values.
-pub fn from_subject(subject: Subject(Option(a))) -> Stream(a) {
+pub fn from_subject(subject: process.Subject(Option(a))) -> Stream(a) {
   Stream(pull: fn() {
     case process.receive_forever(subject) {
       Some(value) -> Some(#(value, from_subject(subject)))
@@ -779,7 +780,10 @@ pub fn from_subject(subject: Subject(Option(a))) -> Stream(a) {
 /// - Wait up to `timeout_ms` milliseconds for each new message
 /// - Terminate if no message is received within the timeout period
 /// - Reset the timeout window after each successful message receipt
-pub fn from_subject_timeout(subject: Subject(a), timeout_ms: Int) -> Stream(a) {
+pub fn from_subject_timeout(
+  subject: process.Subject(a),
+  timeout_ms: Int,
+) -> Stream(a) {
   Stream(pull: fn() {
     case process.receive(subject, timeout_ms) {
       Ok(value) -> Some(#(value, from_subject_timeout(subject, timeout_ms)))
@@ -1110,7 +1114,7 @@ pub fn concurrently(streams: Stream(Stream(a))) -> Stream(Nil) {
   Stream(pull: fn() {
     case streams.pull() {
       Some(#(stream, rest)) -> {
-        task.async(fn() { stream |> to_nil })
+        task.spawn(fn() { stream |> to_nil })
         Some(#(Nil, concurrently(rest)))
       }
       None -> None
@@ -1820,7 +1824,7 @@ pub fn buffer(stream: Stream(a), size: Int, mode: OverflowStrategy) -> Stream(a)
     True -> stream
     False -> {
       let assert Ok(pid) = queue.start(size)
-      task.async(fn() { fill_buffer(stream, mode, pid) |> to_nil() })
+      task.spawn(fn() { fill_buffer(stream, mode, pid) |> to_nil() })
       read_buffer(pid)
     }
   }
@@ -2039,7 +2043,7 @@ pub fn println(stream: Stream(String)) -> Stream(String) {
 /// pure(42) |> debug
 /// ```
 pub fn debug(stream: Stream(a)) -> Stream(a) {
-  tap(stream, fn(x) { io.debug(x) })
+  tap(stream, fn(x) { string.inspect(x) |> io.println })
 }
 
 /// Transforms a stream of Results into a stream of values, using a recovery function for errors.
@@ -3210,9 +3214,11 @@ pub fn batch_process(
   concurrency workers: Int,
   operation op: fn(List(a)) -> List(b),
 ) -> Stream(b) {
+  let owner = process.self()
+
   stream
   |> chunks(batch_size)
-  |> map(fn(batch) { task.async(fn() { op(batch) }) })
+  |> map(fn(batch) { task.async_for(owner, fn() { op(batch) }) })
   |> buffer(workers, Wait)
   |> map(fn(task_handle) { task.await_forever(task_handle) })
   |> flatten_lists()
@@ -3797,7 +3803,7 @@ fn collect_latest_data(
 /// The returned task ensures proper cleanup and should be awaited when the
 /// stream processing is complete. Recipients can receive values from the
 /// subject using `process.receive` or similar functions.
-pub fn to_subject(stream: Stream(a), subject: Subject(Option(a))) -> Nil {
+pub fn to_subject(stream: Stream(a), subject: process.Subject(Option(a))) -> Nil {
   to_fold(stream, Nil, fn(_, x) { process.send(subject, Some(x)) })
   process.send(subject, None)
 }
@@ -4194,17 +4200,33 @@ fn tree_paths_helper(tree: Tree(a), path: List(a)) -> Stream(List(a)) {
 /// The `tree_filter` function creates a stream of subtrees where the
 /// root node satisfies the given predicate.
 pub fn tree_filter(tree: Tree(a), pred: fn(a) -> Bool) -> Stream(Tree(a)) {
-  let subtrees = case pred(tree.value) {
-    True -> from_pure(tree)
-    False -> from_empty()
+  tree_filter_queue([tree], pred)
+}
+
+fn tree_filter_queue(
+  queue: List(Tree(a)),
+  pred: fn(a) -> Bool,
+) -> Stream(Tree(a)) {
+  Stream(pull: fn() {
+    case queue {
+      [] -> None
+      [node, ..rest] -> {
+        let next_queue = append_lists(rest, node.children)
+
+        case pred(node.value) {
+          True -> Some(#(node, tree_filter_queue(next_queue, pred)))
+          False -> tree_filter_queue(next_queue, pred).pull()
+        }
+      }
+    }
+  })
+}
+
+fn append_lists(left: List(a), right: List(a)) -> List(a) {
+  case left {
+    [] -> right
+    [head, ..tail] -> [head, ..append_lists(tail, right)]
   }
-
-  let child_subtrees =
-    tree.children
-    |> from_list
-    |> flat_map(fn(child) { tree_filter(child, pred) })
-
-  concat(subtrees, child_subtrees)
 }
 
 /// Creates a tree from a stream using a key function to determine parent-child relationships.

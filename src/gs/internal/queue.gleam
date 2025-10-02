@@ -1,30 +1,33 @@
-import gleam/erlang/process.{type Subject}
+import gleam/erlang/process
 import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/otp/actor
+import gleam/result
 
 pub type Message(a) {
-  Push(Subject(Bool), a)
-  Pop(Subject(Option(a)))
-  Peek(Subject(Option(a)))
-  Size(Subject(Int))
+  Push(process.Subject(Bool), a)
+  Pop(process.Subject(Option(a)))
+  Peek(process.Subject(Option(a)))
+  Size(process.Subject(Int))
 }
 
 type State(a) {
   State(items: List(a), current_size: Int, max_size: Int)
 }
 
-pub fn start(max_size: Int) {
-  actor.start(
-    State(items: [], current_size: 0, max_size: max_size),
-    handle_message,
-  )
+pub fn start(
+  max_size: Int,
+) -> Result(process.Subject(Message(a)), actor.StartError) {
+  actor.new(State(items: [], current_size: 0, max_size: max_size))
+  |> actor.on_message(handle_message)
+  |> actor.start
+  |> result.map(fn(started) { started.data })
 }
 
 fn handle_message(
-  msg: Message(a),
   state: State(a),
-) -> actor.Next(Message(a), State(a)) {
+  msg: Message(a),
+) -> actor.Next(State(a), Message(a)) {
   case msg {
     Push(reply_with, item) -> {
       case state.current_size < state.max_size {

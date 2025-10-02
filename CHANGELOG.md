@@ -6,6 +6,10 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Migrated queue and parallel map actors to the Gleam 1.1 builder API, ensuring compatibility with current `gleam_otp`.
+- Upgraded runtime dependencies to `gleam_erlang` 1.3.0 and `gleam_otp` 1.1.0.
+- Updated examples to use `io.println(string.inspect(...))` instead of the deprecated `io.debug/1` helper.
+- Adjusted `tree_filter/2` traversal to return matches in breadth-first order, aligning output with documented expectations.
 - Optimised `chunks/2` to track chunk size without repeated length checks, reducing per-element overhead for large streams.
 - Optimised `window/2` to reuse window counts and avoid repeated list traversals while sliding, improving performance of moving-window workloads.
 
@@ -13,8 +17,11 @@ All notable changes to this project will be documented in this file.
 
 - Ensured `buffer/3` instantiates its queue once per buffered stream and treats non-positive capacities as pass-through, preventing actor leaks and making the API more predictable.
 
+- Prevented buffered streams and parallel pipelines from leaking actors by reusing a single queue per stream and scoping async tasks to the caller process.
+
 ### Added
 
+- Introduced internal `task` helper module with lightweight async utilities, replacing the removed `gleam/otp/task` dependency.
 - Add `bracket` pipe function
 - Add `filter_with_previous` pipe function
 - Add `to_last` sink function

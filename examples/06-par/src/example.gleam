@@ -3,6 +3,7 @@ import gleam/erlang/process
 import gleam/float
 import gleam/int
 import gleam/io
+import gleam/string
 import gs
 import gs/par
 
@@ -42,7 +43,8 @@ pub fn main() {
       |> gs.take(num)
       |> gs.to_last
 
-    io.debug(a)
+    string.inspect(a)
+    |> io.println
   })
 
   measure("Sequential", fn() {
@@ -58,6 +60,7 @@ pub fn main() {
       |> gs.take(num)
       |> gs.to_last
 
-    io.debug(b)
+    string.inspect(b)
+    |> io.println
   })
 }
