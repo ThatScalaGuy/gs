@@ -1,5 +1,4 @@
 /// Text utilities built on top of gs streams.
-
 import gleam/bit_array
 import gleam/list
 import gleam/option.{None, Some}
