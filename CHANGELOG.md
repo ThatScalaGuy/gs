@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- Introduced `gs/text` module with UTF-8 encode/decode helpers and streaming line/substring splitting utilities for text-oriented pipelines.
+
 ## [1.1.0] - 2. Oct 2024
 
 ### Changed
