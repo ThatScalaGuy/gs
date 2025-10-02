@@ -88,7 +88,10 @@ pub fn lines(stream: gs.Stream(String)) -> gs.Stream(String) {
 /// // -> ["lorem", "ipsum", "dolor"]
 /// ```
 pub fn split(stream: gs.Stream(String), delimiter: String) -> gs.Stream(String) {
-  split_internal(stream, delimiter, "")
+  case delimiter {
+    "" -> stream
+    _ -> split_internal(stream, delimiter, "")
+  }
 }
 
 fn split_internal(
@@ -113,7 +116,10 @@ fn split_internal(
           [] -> split_internal(next_stream, delimiter, buffer).pull()
 
           [new_buffer, ..reversed_ready] -> {
-            let ready = list.reverse(reversed_ready)
+            let ready =
+              reversed_ready
+              |> list.reverse
+              |> list.filter(fn(segment) { segment != "" })
 
             case ready {
               [] -> split_internal(next_stream, delimiter, new_buffer).pull()

@@ -44,3 +44,31 @@ pub fn text_split_multi_char_delimiter_test() {
   |> gs.to_list
   |> should.equal(["lorem", "ipsum", "dolor"])
 }
+
+pub fn text_split_empty_string_test() {
+  gs.from_list([""])
+  |> text.split(",")
+  |> gs.to_list
+  |> should.equal([])
+}
+
+pub fn text_split_consecutive_delimiters_test() {
+  gs.from_list([",,a,,b,,"])
+  |> text.split(",")
+  |> gs.to_list
+  |> should.equal(["a", "b"])
+}
+
+pub fn text_split_starts_with_delimiter_test() {
+  gs.from_list([",foo,bar"])
+  |> text.split(",")
+  |> gs.to_list
+  |> should.equal(["foo", "bar"])
+}
+
+pub fn text_split_ends_with_delimiter_test() {
+  gs.from_list(["foo,bar,"])
+  |> text.split(",")
+  |> gs.to_list
+  |> should.equal(["foo", "bar"])
+}
