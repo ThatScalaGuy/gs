@@ -2689,8 +2689,116 @@ pub fn to_split(
   #(left, right, task)
 }
 
+/// Produces a stream of intermediate fold results (running accumulator values).
+///
+/// ## Example
+/// ```gleam
+/// > from_list([1, 2, 3, 4, 5])
+/// |> scan(0, fn(acc, x) { acc + x })
+/// |> to_list()
+/// // -> [1, 3, 6, 10, 15]
+/// // Running sum: 0+1=1, 1+2=3, 3+3=6, 6+4=10, 10+5=15
+/// ```
+///
+/// ## Visual Representation
+/// ```
+/// Input:  [1]---->[2]---->[3]---->[4]---->[5]-->|
+///          |       |       |       |       |
+///       f(0,1)  f(1,2)  f(3,3)  f(6,4)  f(10,5)
+///          |       |       |       |       |
+///          v       v       v       v       v
+/// Output: [1]---->[3]---->[6]--->[10]--->[15]-->|
+/// ```
+/// Where:
+/// - `|` represents the end of the stream
+/// - `f(acc,x)` shows each fold operation
+/// - Each output element is the result of applying f to the accumulator and input
+///
+/// ## When to Use
+/// - When you need intermediate results of a fold operation
+/// - For calculating running totals, averages, or other cumulative statistics
+/// - When implementing stateful transformations that expose their state
+/// - For prefix sums, running products, or other scan-like operations
+/// - When debugging fold operations by observing intermediate values
+///
+/// ## Description
+/// The `scan` function is similar to `to_fold`, but instead of returning only the
+/// final result, it emits each intermediate accumulator value as a stream element.
+/// This enables streaming computation of cumulative operations.
+///
+/// Unlike `scan_with_initial`, this function does NOT emit the initial value -
+/// the first output is `f(initial, first_element)`.
+///
+/// Key characteristics:
+/// - Preserves laziness - elements computed on demand
+/// - Does not emit the initial accumulator value
+/// - Output stream has same length as input stream
+/// - Stateful transformation with visible state
+pub fn scan(stream: Stream(a), initial: b, f: fn(b, a) -> b) -> Stream(b) {
+  Stream(pull: fn() {
+    case stream.pull() {
+      Some(#(value, next)) -> {
+        let new_acc = f(initial, value)
+        Some(#(new_acc, scan(next, new_acc, f)))
+      }
+      None -> None
+    }
+  })
+}
+
+/// Like `scan`, but also emits the initial value as the first element.
+///
+/// ## Example
+/// ```gleam
+/// > from_list([1, 2, 3])
+/// |> scan_with_initial(0, fn(acc, x) { acc + x })
+/// |> to_list()
+/// // -> [0, 1, 3, 6]
+/// // Initial value 0 is emitted first, then running sums
+/// ```
+///
+/// ## Visual Representation
+/// ```
+/// Input:         [1]---->[2]---->[3]-->|
+///                 |       |       |
+///              f(0,1)  f(1,2)  f(3,3)
+///                 |       |       |
+///                 v       v       v
+/// Output: [0]--->[1]---->[3]---->[6]-->|
+///          ^
+///          |
+///        initial
+/// ```
+/// Where:
+/// - `|` represents the end of the stream
+/// - The initial value (0) is emitted first
+/// - Subsequent values are running fold results
+///
+/// ## When to Use
+/// - When you need the initial state visible in the output
+/// - For algorithms that require the "before" state
+/// - When the initial value carries semantic meaning
+/// - For compatibility with fold semantics where initial matters
+///
+/// ## Description
+/// The `scan_with_initial` function works like `scan`, but prepends the initial
+/// accumulator value to the output stream. This means the output stream has
+/// one more element than the input stream.
+///
+/// Key characteristics:
+/// - Output stream length = input stream length + 1
+/// - First element is always the initial value
+/// - Useful when the starting state needs to be preserved
+pub fn scan_with_initial(
+  stream: Stream(a),
+  initial: b,
+  f: fn(b, a) -> b,
+) -> Stream(b) {
+  Stream(pull: fn() { Some(#(initial, scan(stream, initial, f))) })
+}
+
 /// Reduces a stream to a single value by applying a function to each element.
-/// 
+///
 /// ## Example
 /// ```gleam
 /// > from_range(1, 5)

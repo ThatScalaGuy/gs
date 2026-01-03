@@ -1233,3 +1233,49 @@ pub fn tree_complex_test() {
   // Paths from these filtered subtrees
   should.be_true(list.length(result) > 0)
 }
+
+// =============================================================================
+// SCAN TESTS
+// =============================================================================
+
+pub fn scan_test() {
+  gs.from_list([1, 2, 3, 4, 5])
+  |> gs.scan(0, fn(acc, x) { acc + x })
+  |> gs.to_list
+  |> should.equal([1, 3, 6, 10, 15])
+}
+
+pub fn scan_empty_test() {
+  gs.from_empty()
+  |> gs.scan(0, fn(acc, x) { acc + x })
+  |> gs.to_list
+  |> should.equal([])
+}
+
+pub fn scan_single_element_test() {
+  gs.from_pure(5)
+  |> gs.scan(10, fn(acc, x) { acc + x })
+  |> gs.to_list
+  |> should.equal([15])
+}
+
+pub fn scan_with_initial_test() {
+  gs.from_list([1, 2, 3])
+  |> gs.scan_with_initial(0, fn(acc, x) { acc + x })
+  |> gs.to_list
+  |> should.equal([0, 1, 3, 6])
+}
+
+pub fn scan_with_initial_empty_test() {
+  gs.from_empty()
+  |> gs.scan_with_initial(42, fn(acc, x) { acc + x })
+  |> gs.to_list
+  |> should.equal([42])
+}
+
+pub fn scan_product_test() {
+  gs.from_list([1, 2, 3, 4])
+  |> gs.scan(1, fn(acc, x) { acc * x })
+  |> gs.to_list
+  |> should.equal([1, 2, 6, 24])
+}
